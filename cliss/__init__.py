@@ -190,7 +190,7 @@ class CLI:
 
         return decorator
 
-    def handle(self, args: Optional[List[str]] = None) -> None:
+    def run(self, args: Optional[List[str]] = None) -> None:
         """
         Parse command-line arguments and execute the appropriate command.
 

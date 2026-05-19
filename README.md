@@ -70,7 +70,7 @@ def add(task: str, priority: int = 1, done: bool = False):
     return f"[{status}] {task} (priority: {priority})"
 
 if __name__ == "__main__":
-    cli.handle()
+    cli.run()
 ```
 
 ```bash
@@ -143,7 +143,7 @@ def delete(key: str, force: bool = False):
         return f"Deleted: {key}"
     return f"Not found: {key} (use --force)"
 
-cli.handle()
+cli.run()
 ```
 
 ### Explicit Arguments
@@ -256,5 +256,6 @@ MIT License — see [LICENSE](LICENSE) file.
 
 ---
 
+**Author:** [Fkernel653](https://github.com/Fkernel653)
 **Repository:** [github.com/Fkernel653/cliss](https://github.com/Fkernel653/cliss)
 **PyPI:** [pypi.org/project/cliss](https://pypi.org/project/cliss/)
