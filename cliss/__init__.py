@@ -2,30 +2,22 @@ import argparse
 import asyncio
 import inspect
 import sys
-import types
-import typing
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union, get_args, get_origin
 
 
 def _get_type_from_annotation(annotation, default):
     """Extract a usable type from annotation, handling Union/Optional."""
+    from types import UnionType
+
     if annotation is inspect.Parameter.empty:
         return type(default) if default is not inspect.Parameter.empty else str
 
-    # Handle Optional[str] / str | None
-    origin = typing.get_origin(annotation)
-    if origin is types.UnionType or origin is typing.Union:
-        args = typing.get_args(annotation)
-        non_none = [a for a in args if a is not type(None)]
-        if non_none:
-            return non_none[0]
-        return str
+    origin = get_origin(annotation)
+    if origin in (Union, UnionType):
+        non_none = [a for a in get_args(annotation) if a is not type(None)]
+        return non_none[0] if non_none else str
 
-    # Handle plain types (str, int, float, etc.)
-    if isinstance(annotation, type):
-        return annotation
-
-    return str
+    return annotation if isinstance(annotation, type) else str
 
 
 class Argument:
@@ -86,8 +78,8 @@ class CLI:
         self.name = name
         self.description = description
         self.version = version
-        self.auto_help = auto_help
         self.colour = colour
+        self._commands: Dict[str, dict] = {}
 
         parser_kwargs = {
             "prog": name,
@@ -101,13 +93,10 @@ class CLI:
             parser_kwargs["formatter_class"] = argparse.RawDescriptionHelpFormatter
 
         self.parser = argparse.ArgumentParser(**parser_kwargs)
+        self.subparsers = self.parser.add_subparsers(dest="_command", title="Commands")
 
         if version:
             self.parser.add_argument("--version", action="version", version=version)
-
-        self.subparsers = self.parser.add_subparsers(dest="_command", title="Commands")
-        self._commands: Dict[str, dict] = {}
-        self._global_args: List[Argument] = []
 
     def add_global_argument(self, *flags, **kwargs):
         """
@@ -117,7 +106,6 @@ class CLI:
             *flags: Argument flags (e.g., "--verbose", "-v").
             **kwargs: Additional keyword arguments passed to argparse.
         """
-        self._global_args.append(Argument(*flags, **kwargs))
         self.parser.add_argument(*flags, **kwargs)
 
     def command(
@@ -159,37 +147,27 @@ class CLI:
 
             explicit_dests = set()
 
-            # Add explicitly specified arguments
             if arguments:
                 for arg in arguments:
                     kwargs = {
-                        "type": arg.type,
-                        "default": arg.default,
-                        "help": arg.help,
-                        "required": arg.required,
-                        "choices": arg.choices,
+                        k: v
+                        for k, v in vars(arg).items()
+                        if k != "flags" and v is not None
                     }
-
-                    if arg.action:
-                        kwargs["action"] = arg.action
-
                     action = parser.add_argument(*arg.flags, **kwargs)
                     explicit_dests.add(action.dest)
 
-            # Automatically add arguments from the function signature
             sig = inspect.signature(func)
             for param_name, param in sig.parameters.items():
                 if param_name in explicit_dests:
-                    continue  # Argument already explicitly added
+                    continue
 
                 if param.default is inspect.Parameter.empty:
-                    # Positional argument
                     arg_type = _get_type_from_annotation(
                         param.annotation, param.default
                     )
                     parser.add_argument(param_name, type=arg_type, help=param_name)
                 else:
-                    # Optional argument
                     flag = f"--{param_name.replace('_', '-')}"
                     is_bool = param.annotation == bool or (
                         isinstance(param.default, bool)
@@ -197,26 +175,23 @@ class CLI:
                     )
 
                     if is_bool:
-                        action = "store_false" if param.default else "store_true"
                         parser.add_argument(
                             flag,
-                            action=action,
+                            action="store_false" if param.default else "store_true",
                             default=param.default,
                             help=f"{param_name} (default: {param.default})",
                         )
                     else:
-                        arg_type = _get_type_from_annotation(
-                            param.annotation, param.default
-                        )
                         parser.add_argument(
                             flag,
-                            type=arg_type,
+                            type=_get_type_from_annotation(
+                                param.annotation, param.default
+                            ),
                             default=param.default,
                             help=f"{param_name} (default: {param.default})",
                         )
 
             self._commands[cmd_name] = {"func": func, "parser": parser}
-
             return func
 
         return decorator
@@ -231,8 +206,7 @@ class CLI:
         Raises:
             SystemExit: If argument parsing fails or an error occurs during execution.
         """
-        if args is None:
-            args = sys.argv[1:]
+        args = args or sys.argv[1:]
 
         if not args:
             self.parser.print_help()
@@ -240,16 +214,15 @@ class CLI:
 
         try:
             namespace = self.parser.parse_args(args)
-
             command = getattr(namespace, "_command", None)
+
             if not command or command not in self._commands:
                 self.parser.print_help()
                 return
 
-            cmd_data = self._commands[command]
             func_kwargs = {k: v for k, v in vars(namespace).items() if k != "_command"}
+            result = self._commands[command]["func"](**func_kwargs)
 
-            result = cmd_data["func"](**func_kwargs)
             if asyncio.iscoroutine(result):
                 result = asyncio.run(result)
 
@@ -260,5 +233,5 @@ class CLI:
             if e.code is not None and e.code != 0:
                 raise
         except (ValueError, TypeError) as e:
-            print(f"Error: {e}", file=sys.stderr)
+            print(f"Error: {e}")
             sys.exit(1)

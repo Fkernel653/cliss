@@ -1,6 +1,6 @@
 # cliss — A lightweight framework for building CLI applications on top of argparse
 
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://python.org)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![PyPI](https://img.shields.io/pypi/v/cliss.svg)](https://pypi.org/project/cliss/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey)]()
@@ -21,7 +21,7 @@ Write type-annotated Python functions, get a full CLI — automatic `--help`, va
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.9+
+- Python 3.10+
 
 ### Installation
 
@@ -129,7 +129,7 @@ CLI(
 | `description` | `Optional[str]` | `None` | Description in help output |
 | `version` | `Optional[str]` | `None` | Adds `--version` flag |
 | `auto_help` | `bool` | `True` | Adds `--help` flag |
-| `colour` | `bool` | `True` | Enables coloured help output (Python 3.12+ native, else ANSI) |
+| `colour` | `bool` | `True` | Enables coloured help output (Python 3.14+ native, else ANSI) |
 
 ### `Argument` class
 ```python
@@ -343,7 +343,7 @@ cliss/
 
 | Dependency | Purpose |
 |------------|---------|
-| Python 3.9+ | Type hints, `inspect.signature` |
+| Python 3.10+ | Type hints, `inspect.signature` |
 
 No external dependencies — stdlib only.
 
