@@ -95,7 +95,7 @@ class CLI:
             "add_help": auto_help,
         }
 
-        if colour and sys.version_info >= (3, 12):
+        if colour and sys.version_info >= (3, 14):
             parser_kwargs["color"] = True
         elif colour:
             parser_kwargs["formatter_class"] = argparse.RawDescriptionHelpFormatter

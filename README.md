@@ -15,7 +15,7 @@ Write type-annotated Python functions, get a full CLI — automatic `--help`, va
 - **🧩 Flexible** — Declarative `Argument` objects, type inference, or both
 - **⚡ Async-Native** — `async def` handlers with automatic event loop management
 - **🌍 Global Args** — Define flags shared across all commands
-- **🎨 Coloured Help** — Automatic coloured output on Python 3.12+, ANSI fallback for older versions
+- **🎨 Coloured Help** — Automatic coloured output on Python 3.14+, ANSI fallback for older versions
 - **🔧 argparse Access** — Full access to underlying parsers for advanced use
 
 ## 🚀 Quick Start
@@ -415,7 +415,7 @@ def fetch_sync(url: str):
 
 ### How does coloured output work?
 
-On **Python 3.12+**, cliss uses argparse's native `color=True` for automatic terminal-aware highlighting. On older versions, it falls back to `RawDescriptionHelpFormatter` for manual ANSI codes. Set `colour=False` to disable all colours.
+On **Python 3.14+**, cliss uses argparse's native `color=True` for automatic terminal-aware highlighting. On older versions, it falls back to `RawDescriptionHelpFormatter` for manual ANSI codes. Set `colour=False` to disable all colours.
 
 ## 🐛 Troubleshooting
 
