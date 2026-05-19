@@ -2,7 +2,30 @@ import argparse
 import asyncio
 import inspect
 import sys
+import types
+import typing
 from typing import Any, Callable, Dict, List, Optional
+
+
+def _get_type_from_annotation(annotation, default):
+    """Extract a usable type from annotation, handling Union/Optional."""
+    if annotation is inspect.Parameter.empty:
+        return type(default) if default is not inspect.Parameter.empty else str
+
+    # Handle Optional[str] / str | None
+    origin = typing.get_origin(annotation)
+    if origin is types.UnionType or origin is typing.Union:
+        args = typing.get_args(annotation)
+        non_none = [a for a in args if a is not type(None)]
+        if non_none:
+            return non_none[0]
+        return str
+
+    # Handle plain types (str, int, float, etc.)
+    if isinstance(annotation, type):
+        return annotation
+
+    return str
 
 
 class Argument:
@@ -161,10 +184,8 @@ class CLI:
 
                 if param.default is inspect.Parameter.empty:
                     # Positional argument
-                    arg_type = (
-                        param.annotation
-                        if param.annotation != inspect.Parameter.empty
-                        else str
+                    arg_type = _get_type_from_annotation(
+                        param.annotation, param.default
                     )
                     parser.add_argument(param_name, type=arg_type, help=param_name)
                 else:
@@ -184,10 +205,8 @@ class CLI:
                             help=f"{param_name} (default: {param.default})",
                         )
                     else:
-                        arg_type = (
-                            param.annotation
-                            if param.annotation != inspect.Parameter.empty
-                            else type(param.default)
+                        arg_type = _get_type_from_annotation(
+                            param.annotation, param.default
                         )
                         parser.add_argument(
                             flag,
