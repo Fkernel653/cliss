@@ -48,6 +48,7 @@ class CLI:
         description: Optional[str] = None,
         version: Optional[str] = None,
         auto_help: bool = True,
+        colour: bool = True,
     ):
         """
         Initialize the CLI application.
@@ -57,15 +58,26 @@ class CLI:
             description: Description of the application (shown in help).
             version: Version string for --version flag. If provided, adds automatic version display.
             auto_help: Whether to automatically add a --help flag.
+            colour: Whether to enable coloured output in help and error messages.
         """
         self.name = name
         self.description = description
         self.version = version
         self.auto_help = auto_help
+        self.colour = colour
 
-        self.parser = argparse.ArgumentParser(
-            prog=name, description=description, add_help=auto_help
-        )
+        parser_kwargs = {
+            "prog": name,
+            "description": description,
+            "add_help": auto_help,
+        }
+
+        if colour and sys.version_info >= (3, 12):
+            parser_kwargs["color"] = True
+        elif colour:
+            parser_kwargs["formatter_class"] = argparse.RawDescriptionHelpFormatter
+
+        self.parser = argparse.ArgumentParser(**parser_kwargs)
 
         if version:
             self.parser.add_argument("--version", action="version", version=version)
