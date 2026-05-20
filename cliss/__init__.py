@@ -3,13 +3,12 @@ from __future__ import annotations
 import argparse
 import inspect
 import sys
+from types import UnionType
 from typing import Any, Callable, Dict, List, Optional, Union, get_args, get_origin
 
 
 def _get_type_from_annotation(annotation, default):
     """Extract a usable type from annotation, handling Union/Optional."""
-    from types import UnionType
-
     if annotation is inspect.Parameter.empty:
         return type(default) if default is not inspect.Parameter.empty else str
 
@@ -21,7 +20,9 @@ def _get_type_from_annotation(annotation, default):
     origin = get_origin(annotation)
     if origin in (Union, UnionType):
         non_none = [a for a in get_args(annotation) if a is not type(None)]
-        return non_none[0] if non_none else str
+        if non_none:
+            return non_none[0]
+        return type(default) if default is not inspect.Parameter.empty else str
 
     return annotation if isinstance(annotation, type) else str
 
@@ -195,17 +196,26 @@ class CLI:
         return decorator
 
     def _is_bool_type(self, param: inspect.Parameter) -> bool:
+        """Check if parameter is a boolean type."""
         annotation = param.annotation
 
         if isinstance(annotation, str):
-            return annotation == "bool"
+            return annotation in (
+                "bool",
+                "Optional[bool]",
+                "Union[bool, None]",
+                "Union[bool, NoneType]",
+            )
 
-        if annotation == bool:
+        origin = get_origin(annotation)
+        if origin in (Union, UnionType):
+            args = get_args(annotation)
+            non_none = [a for a in args if a is not type(None)]
+            return len(non_none) == 1 and non_none[0] is bool
+
+        if annotation is bool:
             return True
-        if isinstance(param.default, bool) and annotation in (
-            bool,
-            inspect.Parameter.empty,
-        ):
+        if isinstance(param.default, bool) and annotation is inspect.Parameter.empty:
             return True
         return False
 
