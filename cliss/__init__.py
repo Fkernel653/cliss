@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import inspect
 import sys
@@ -10,6 +12,11 @@ def _get_type_from_annotation(annotation, default):
 
     if annotation is inspect.Parameter.empty:
         return type(default) if default is not inspect.Parameter.empty else str
+
+    if isinstance(annotation, str):
+        if default is not inspect.Parameter.empty:
+            return type(default)
+        return str
 
     origin = get_origin(annotation)
     if origin in (Union, UnionType):
@@ -188,10 +195,14 @@ class CLI:
         return decorator
 
     def _is_bool_type(self, param: inspect.Parameter) -> bool:
-        """Check if parameter is a boolean type."""
-        if param.annotation == bool:
+        annotation = param.annotation
+
+        if isinstance(annotation, str):
+            return annotation == "bool"
+
+        if annotation == bool:
             return True
-        if isinstance(param.default, bool) and param.annotation in (
+        if isinstance(param.default, bool) and annotation in (
             bool,
             inspect.Parameter.empty,
         ):
