@@ -1,5 +1,4 @@
 import argparse
-import asyncio
 import inspect
 import sys
 from typing import Any, Callable, Dict, List, Optional, Union, get_args, get_origin
@@ -168,20 +167,12 @@ class CLI:
                     )
                     parser.add_argument(param_name, type=arg_type, help=param_name)
                 else:
-                    flag = f"--{param_name.replace('_', '-')}"
-                    is_bool = param.annotation == bool or (
-                        isinstance(param.default, bool)
-                        and param.annotation in (bool, inspect.Parameter.empty)
-                    )
+                    is_bool = self._is_bool_type(param)
 
                     if is_bool:
-                        parser.add_argument(
-                            flag,
-                            action="store_false" if param.default else "store_true",
-                            default=param.default,
-                            help=f"{param_name} (default: {param.default})",
-                        )
+                        self._add_bool_argument(parser, param_name, param)
                     else:
+                        flag = f"--{param_name.replace('_', '-')}"
                         parser.add_argument(
                             flag,
                             type=_get_type_from_annotation(
@@ -195,6 +186,45 @@ class CLI:
             return func
 
         return decorator
+
+    def _is_bool_type(self, param: inspect.Parameter) -> bool:
+        """Check if parameter is a boolean type."""
+        if param.annotation == bool:
+            return True
+        if isinstance(param.default, bool) and param.annotation in (
+            bool,
+            inspect.Parameter.empty,
+        ):
+            return True
+        return False
+
+    def _add_bool_argument(self, parser, param_name: str, param: inspect.Parameter):
+        """Add boolean argument with automatic --name/--no-name flags."""
+        base_flag = param_name.replace("_", "-")
+        flag_on = f"--{base_flag}"
+        flag_off = f"--no-{base_flag}"
+
+        default_val = (
+            param.default if param.default is not inspect.Parameter.empty else False
+        )
+
+        group = parser.add_mutually_exclusive_group()
+
+        group.add_argument(
+            flag_on,
+            action="store_true",
+            default=default_val,
+            dest=param_name,
+            help=f"Enable {param_name}",
+        )
+
+        group.add_argument(
+            flag_off,
+            action="store_false",
+            default=default_val,
+            dest=param_name,
+            help=f"Disable {param_name}",
+        )
 
     def run(self, args: Optional[List[str]] = None) -> None:
         """
@@ -222,6 +252,8 @@ class CLI:
 
             func_kwargs = {k: v for k, v in vars(namespace).items() if k != "_command"}
             result = self._commands[command]["func"](**func_kwargs)
+
+            import asyncio
 
             if asyncio.iscoroutine(result):
                 result = asyncio.run(result)
