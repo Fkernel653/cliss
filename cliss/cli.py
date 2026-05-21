@@ -215,14 +215,22 @@ class CLI:
 
         try:
             namespace = self.parser.parse_args(args)
-            command = getattr(namespace, "_command", None)
 
-            if not command or command not in self._commands:
+            command_parts = [namespace._command]
+            for key, value in vars(namespace).items():
+                if key.startswith("_group_") and value:
+                    command_parts.append(value)
+
+            full_command = ":".join(command_parts)
+
+            if full_command not in self._commands:
                 self.parser.print_help()
                 return
 
-            func_kwargs = {k: v for k, v in vars(namespace).items() if k != "_command"}
-            result = self._commands[command]["func"](**func_kwargs)
+            func_kwargs = {
+                k: v for k, v in vars(namespace).items() if not k.startswith("_")
+            }
+            result = self._commands[full_command]["func"](**func_kwargs)
 
             import asyncio
 
