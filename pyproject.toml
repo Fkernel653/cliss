@@ -1,22 +1,20 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "cliss"
-version = "0.2.1"
+version = "0.2.2"
 description = "A lightweight framework for building CLI applications on top of argparse"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Fkernel653"}
 ]
 keywords = ["cli", "argparse", "command-line", "framework", "lightweight"]
 classifiers = [
-    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -26,12 +24,14 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: User Interfaces",
+    "Topic :: Terminals",
     "Topic :: Utilities",
 ]
 
 [project.urls]
 Homepage = "https://github.com/Fkernel653/cliss"
 Repository = "https://github.com/Fkernel653/cliss.git"
+Documentation = "https://github.com/Fkernel653/cliss#readme"
 
 [tool.setuptools.packages.find]
 where = ["."]
