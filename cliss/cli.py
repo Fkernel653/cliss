@@ -141,29 +141,30 @@ class CLI:
                     explicit_dests.add(action.dest)
 
             sig = inspect.signature(func)
-            for param_name, param in sig.parameters.items():
+            param_items = list(sig.parameters.items())
+
+            for param_name, param in param_items:
                 if param_name in explicit_dests:
                     continue
 
-                if param.default is inspect.Parameter.empty:
+                has_default = param.default is not inspect.Parameter.empty
+
+                if not has_default:
                     parser.add_argument(
                         param_name,
                         type=get_type_from_annotation(param.annotation, param.default),
                         help=param_name,
                     )
+                elif is_bool_type(param):
+                    self._add_bool_argument(parser, param_name, param)
                 else:
-                    if is_bool_type(param):
-                        self._add_bool_argument(parser, param_name, param)
-                    else:
-                        flag = f"--{param_name.replace('_', '-')}"
-                        parser.add_argument(
-                            flag,
-                            type=get_type_from_annotation(
-                                param.annotation, param.default
-                            ),
-                            default=param.default,
-                            help=f"{param_name} (default: {param.default})",
-                        )
+                    flag = f"--{param_name.replace('_', '-')}"
+                    parser.add_argument(
+                        flag,
+                        type=get_type_from_annotation(param.annotation, param.default),
+                        default=param.default,
+                        help=f"{param_name} (default: {param.default})",
+                    )
 
             full_name = (
                 f"{self.name}:{cmd_name}"
@@ -184,20 +185,25 @@ class CLI:
             param.default if param.default is not inspect.Parameter.empty else False
         )
 
+        flag_on = f"--{base_flag}"
+        flag_off = f"--no-{base_flag}"
+        help_on = f"Enable {param_name}"
+        help_off = f"Disable {param_name}"
+
         group = parser.add_mutually_exclusive_group()
         group.add_argument(
-            f"--{base_flag}",
+            flag_on,
             action="store_true",
             default=default_val,
             dest=param_name,
-            help=f"Enable {param_name}",
+            help=help_on,
         )
         group.add_argument(
-            f"--no-{base_flag}",
+            flag_off,
             action="store_false",
             default=default_val,
             dest=param_name,
-            help=f"Disable {param_name}",
+            help=help_off,
         )
 
     def run(self, args: Optional[List[str]] = None) -> None:
@@ -207,7 +213,7 @@ class CLI:
         Args:
             args: List of command-line arguments. If None, uses sys.argv[1:].
         """
-        args = args or sys.argv[1:]
+        args = args if args is not None else sys.argv[1:]
 
         if not args:
             self.parser.print_help()
@@ -216,33 +222,38 @@ class CLI:
         try:
             namespace = self.parser.parse_args(args)
 
+            namespace_dict = vars(namespace)
+
             command_parts = [namespace._command]
-            for key, value in vars(namespace).items():
-                if key.startswith("_group_") and value:
-                    command_parts.append(value)
+            command_parts.extend(
+                value
+                for key, value in namespace_dict.items()
+                if key.startswith("_group_") and value
+            )
 
             full_command = ":".join(command_parts)
 
-            if full_command not in self._commands:
+            command_info = self._commands.get(full_command)
+            if command_info is None:
                 self.parser.print_help()
                 return
 
             func_kwargs = {
-                k: v for k, v in vars(namespace).items() if not k.startswith("_")
+                k: v for k, v in namespace_dict.items() if not k.startswith("_")
             }
-            result = self._commands[full_command]["func"](**func_kwargs)
+            result = command_info["func"](**func_kwargs)
 
-            import asyncio
+            if hasattr(result, "__await__"):
+                import asyncio
 
-            if asyncio.iscoroutine(result):
                 result = asyncio.run(result)
 
             if result is not None:
-                print(result)
+                sys.stdout.write(str(result) + "\n")
 
         except SystemExit as e:
             if e.code is not None and e.code != 0:
                 raise
         except (ValueError, TypeError) as e:
-            print(f"Error: {e}")
+            sys.stderr.write(f"Error: {e}\n")
             sys.exit(1)
