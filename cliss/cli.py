@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import inspect
+import re
 import sys
-from typing import Any, Callable, Dict, List, Literal, Optional
+from typing import Any, Callable, Dict, List, NoReturn, Optional
+
+from color_kiss import BOLD, BOLD_CYAN, BOLD_GREEN, BOLD_RED, RESET
 
 from .argument import Argument
 from .utils import get_type_from_annotation, is_bool_type
@@ -19,89 +23,77 @@ class CLI:
         name: Optional[str] = None,
         description: Optional[str] = None,
         version: Optional[str] = None,
-        auto_help: bool = True,
-        helper: Literal["argparse", "cliss"] = "cliss",
+        usage: Optional[str] = "{self.name} [COMMAND] [OPTIONS] ...\n",
         colour: bool = True,
     ):
-        """
-        Initialize the CLI application.
-
-        Args:
-            name: Name of the application (shown in help).
-            description: Description of the application (shown in help).
-            version: Version string for --version flag. If provided, adds automatic version display.
-            auto_help: Whether to automatically add a --help flag.
-            helper: Help system to use ("argparse" or "cliss").
-            colour: Whether to enable coloured output in help and error messages.
-        """
         self.name = name
         self.description = description
         self.version = version
         self.colour = colour
-        self.helper_type = helper
+        self.usage = usage
         self._commands: Dict[str, dict] = {}
+        self._help_system = None
 
-        parser_kwargs: Dict[str, Any] = {
-            "prog": name,
-            "description": description,
-            "add_help": auto_help and helper == "argparse",
-        }
-
-        if helper == "cliss":
-            from .help import Help, HelpFormatter
-
-            self.help_system = Help(self)
-            parser_kwargs["formatter_class"] = HelpFormatter
-        else:
-            self.help_system = None
-
-        if colour and sys.version_info >= (3, 14):
-            parser_kwargs["color"] = True
-        elif colour:
-            parser_kwargs["formatter_class"] = argparse.RawDescriptionHelpFormatter
-
-        self.parser = argparse.ArgumentParser(**parser_kwargs)
-        self.subparsers = self.parser.add_subparsers(
-            dest="_command",
-            title="Commands",
+        self.parser = argparse.ArgumentParser(
+            prog=name,
+            description=description,
+            add_help=False,
+            exit_on_error=False,
         )
-        self.parser.usage = f"{self.name} [OPTIONS] [COMMAND] ...\n"
+        self.parser.error = lambda msg: self._error_handler(self.parser, msg)  # type: ignore[assignment]
+        self.subparsers = self.parser.add_subparsers(dest="_command", title="Commands")
+        self.parser.usage = usage.format(self=self) if usage else None
 
         if version:
             self.parser.add_argument("--version", action="version", version=version)
+        self.parser.add_argument(
+            "-h",
+            "--help",
+            action="store_true",
+            default=argparse.SUPPRESS,
+            help="Print help",
+        )
 
-        if auto_help:
-            self.parser.add_argument(
-                "-h",
-                "--help",
-                action="help",
-                default=argparse.SUPPRESS,
-                help="Print help",
-            )
+    @property
+    def help_system(self):
+        if self._help_system is None:
+            from .help import Help, HelpFormatter
+
+            self.parser.formatter_class = HelpFormatter
+            self._help_system = Help(self)
+        return self._help_system
+
+    @help_system.setter
+    def help_system(self, value):
+        self._help_system = value
+
+    def _color_usage(self, usage_text: str) -> str:
+        """Apply colours: Usage green, [OPTIONS] cyan."""
+        usage_text = re.sub(r"^(?i:usage):", f"{BOLD_GREEN}Usage:{RESET}", usage_text)
+        usage_text = re.sub(r"\[([A-Z_]+)\]", rf"{BOLD_CYAN}[\1]{RESET}", usage_text)
+        usage_text = re.sub(r"\b([A-Z]{2,})\b", rf"{BOLD_CYAN}\1{RESET}", usage_text)
+        return usage_text
+
+    def _error_handler(self, parser: argparse.ArgumentParser, message: str) -> NoReturn:
+        """Print coloured error message."""
+        usage_text = parser.format_usage().replace("usage:", "Usage:", 1)
+        if self.colour:
+            print(self._color_usage(usage_text))
+            print(f"{BOLD_RED}Error:{RESET} {BOLD}{message}{RESET}")
+        else:
+            print(f"{usage_text}\nError: {message}")
+        sys.exit(2)
+
+    def _make_error_handler(self, parser: argparse.ArgumentParser) -> None:
+        """Set error handler for a parser."""
+        parser.error = lambda msg: self._error_handler(parser, msg)  # type: ignore[assignment]
 
     def add_global_argument(self, *flags: str, **kwargs: Any) -> None:
-        """
-        Add a global argument that applies to all commands.
-
-        Args:
-            *flags: Argument flags (e.g., "--verbose", "-v").
-            **kwargs: Additional keyword arguments passed to argparse.
-        """
+        """Add a global argument that applies to all commands."""
         self.parser.add_argument(*flags, **kwargs)
 
     def group(self, name: str, description: Optional[str] = None, **kwargs: Any) -> CLI:
-        """
-        Create a command group (like git remote, git stash).
-
-        Args:
-            name: Name of the group.
-            description: Description shown in help.
-            **kwargs: Additional keyword arguments passed to the subparser.
-
-        Returns:
-            A new CLI instance scoped to this group. Use .command() on it
-            to register subcommands.
-        """
+        """Create a command group."""
         group_parser = self.subparsers.add_parser(
             name, help=description or f"{name} commands", **kwargs
         )
@@ -110,15 +102,20 @@ class CLI:
         )
 
         sub_cli = CLI.__new__(CLI)
+        for attr in (
+            "name",
+            "description",
+            "colour",
+            "usage",
+            "_commands",
+            "_help_system",
+        ):
+            setattr(sub_cli, attr, getattr(self, attr))
         sub_cli.name = name
         sub_cli.description = description
         sub_cli.version = None
-        sub_cli.colour = self.colour
-        sub_cli.helper_type = self.helper_type
-        sub_cli.help_system = self.help_system
         sub_cli.parser = group_parser
         sub_cli.subparsers = group_sub
-        sub_cli._commands = self._commands
         return sub_cli
 
     def command(
@@ -128,20 +125,7 @@ class CLI:
         arguments: Optional[List[Argument]] = None,
         **parser_kwargs: Any,
     ) -> Callable:
-        """
-        Decorator for creating a command.
-
-        Args:
-            name: Name of the command. If not provided, uses the function name
-                  with underscores replaced by hyphens.
-            description: Description of the command. If not provided, uses the
-                         function's docstring.
-            arguments: Optional list of Argument objects.
-            **parser_kwargs: Additional keyword arguments passed to the subparser.
-
-        Returns:
-            A decorator that registers the function as a command.
-        """
+        """Decorator for creating a command."""
 
         def decorator(func: Callable) -> Callable:
             cmd_name = name or func.__name__.replace("_", "-")
@@ -152,7 +136,16 @@ class CLI:
                 cmd_name,
                 help=cmd_help.split("\n")[0] if cmd_help else None,
                 description=cmd_help,
+                add_help=False,
                 **parser_kwargs,
+            )
+            self._make_error_handler(parser)
+            parser.add_argument(
+                "-h",
+                "--help",
+                action="store_true",
+                default=argparse.SUPPRESS,
+                help="Print help",
             )
 
             explicit_dests = set()
@@ -208,7 +201,6 @@ class CLI:
         default_val = (
             param.default if param.default is not inspect.Parameter.empty else False
         )
-
         group = parser.add_mutually_exclusive_group()
         group.add_argument(
             f"--{base_flag}",
@@ -227,56 +219,33 @@ class CLI:
 
     def print_help(self, command_name: Optional[str] = None) -> None:
         """Print help using the configured help system."""
-        if self.help_system and self.helper_type == "cliss":
-            if command_name:
-                command_info = self._commands.get(command_name)
-                self.help_system.print_help(
-                    command_info["parser"] if command_info else self.parser,
-                    command_name,
-                )
-            else:
-                self.help_system.print_help(self.parser)
-        elif command_name:
+        if command_name:
             command_info = self._commands.get(command_name)
-            (command_info["parser"] if command_info else self.parser).print_help()
+            self.help_system.print_help(
+                command_info["parser"] if command_info else self.parser, command_name
+            )
         else:
-            self.parser.print_help()
+            self.help_system.print_help(self.parser)
 
     def run(self, args: Optional[List[str]] = None) -> None:
-        """
-        Parse command-line arguments and execute the appropriate command.
+        """Parse command-line arguments and execute the appropriate command."""
+        args = sys.argv[1:] if args is None else args
 
-        Args:
-            args: List of command-line arguments. If None, uses sys.argv[1:].
-        """
-        args = args if args is not None else sys.argv[1:]
-
-        if not args:
-            self.print_help()
+        if not args or any(arg in ("--help", "-h") for arg in args):
+            command_name = next((arg for arg in args if not arg.startswith("-")), None)
+            self.print_help(command_name)
             return
 
         try:
-            if self.helper_type == "cliss" and any(
-                arg in ("--help", "-h") for arg in args
-            ):
-                command_name = next(
-                    (arg for arg in args if not arg.startswith("-")), None
-                )
-                self.print_help(command_name)
-                return
-
             namespace = self.parser.parse_args(args)
-
-            if self.helper_type == "cliss" and getattr(namespace, "help", False):
+            if getattr(namespace, "help", False):
                 self.print_help()
                 return
 
             namespace_dict = vars(namespace)
             command_parts = [namespace._command]
             command_parts.extend(
-                value
-                for key, value in namespace_dict.items()
-                if key.startswith("_group_") and value
+                v for k, v in namespace_dict.items() if k.startswith("_group_") and v
             )
             full_command = ":".join(command_parts)
 
@@ -289,21 +258,14 @@ class CLI:
                 k: v for k, v in namespace_dict.items() if not k.startswith("_")
             }
 
-            if command_info.get("is_async"):
-                import asyncio
-
+            if command_info["is_async"]:
                 result = asyncio.run(command_info["func"](**func_kwargs))
             else:
                 result = command_info["func"](**func_kwargs)
 
             if result is not None:
-                sys.stdout.write(str(result) + "\n")
+                print(str(result))
 
         except SystemExit as e:
-            if e.code == 0 and self.helper_type == "cliss":
-                return
             if e.code is not None and e.code != 0:
                 raise
-        except (ValueError, TypeError) as e:
-            sys.stderr.write(f"Error: {e}\n")
-            sys.exit(1)
