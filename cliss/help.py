@@ -68,6 +68,13 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         """Set the colour theme."""
         self._help_theme = theme
 
+    def _format_subparsers(self, action: argparse.Action) -> str:
+        """Format subparsers without duplicate metavar line."""
+        parts = []
+        for name, subparser in action._name_parser_map.items():  # type: ignore[attr-defined]
+            parts.append(self._format_action(subparser))
+        return "\n".join(parts)
+
     def _format_usage(self, usage, actions, groups, prefix):
         if prefix is None:
             prefix = "Usage: "

@@ -62,7 +62,7 @@ class CLI:
 
         self.parser = argparse.ArgumentParser(**parser_kwargs)
         self.subparsers = self.parser.add_subparsers(
-            dest="_command", title="Commands", metavar=""
+            dest="_command", title="Commands", metavar="COMMAND"
         )
 
         if version:
