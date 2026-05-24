@@ -61,11 +61,11 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         width: Optional[int] = None,
     ):
         super().__init__(prog, indent_increment, max_help_position, width)
-        self._theme = None
+        self._help_theme = None
 
     def set_theme(self, theme: HelpTheme) -> None:
         """Set the colour theme."""
-        self._theme = theme
+        self._help_theme = theme
 
     def _format_usage(self, usage, actions, groups, prefix):
         """Override to add colour to usage section."""
@@ -74,15 +74,17 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
 
         formatted = super()._format_usage(usage, actions, groups, prefix)
 
-        if self._theme:
+        theme = self._help_theme
+
+        if theme is not None:
             lines = formatted.split("\n")
             coloured_lines = []
             for line in lines:
                 if line.startswith("Usage:"):
                     parts = line.split(":", 1)
                     coloured_lines.append(
-                        f"{self._theme.apply('Usage:', self._theme.usage)}"
-                        f"{self._theme.apply(parts[1], self._theme.description)}"
+                        f"{theme.apply('Usage:', theme.usage)}"
+                        f"{theme.apply(parts[1], theme.description)}"
                     )
                 else:
                     coloured_lines.append(line)
@@ -94,12 +96,12 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         """Override to add colour to action formatting."""
         result = super()._format_action(action)
 
-        if self._theme and action.option_strings:
+        theme = self._help_theme
+
+        if theme is not None and action.option_strings:
             for opt in action.option_strings:
                 if opt in result:
-                    result = result.replace(
-                        opt, self._theme.apply(opt, self._theme.option_string)
-                    )
+                    result = result.replace(opt, theme.apply(opt, theme.option_string))
 
         return result
 
@@ -110,11 +112,12 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
             (metavar,) = self._metavar_formatter(action, default)(1)
             return metavar
 
+        theme = self._help_theme
         parts = []
         if action.option_strings:
             for opt in action.option_strings:
-                if self._theme:
-                    parts.append(self._theme.apply(opt, self._theme.option_string))
+                if theme is not None:
+                    parts.append(theme.apply(opt, theme.option_string))
                 else:
                     parts.append(opt)
 
@@ -124,7 +127,7 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         """Override to add colour to metavar."""
         original_formatter = super()._metavar_formatter(action, default_metavar)
 
-        theme = self._theme
+        theme = self._help_theme
 
         if theme is not None:
 
