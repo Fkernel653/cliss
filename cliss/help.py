@@ -71,8 +71,8 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
     def _format_subparsers(self, action: argparse.Action) -> str:
         """Format subparsers without duplicate metavar line."""
         parts = []
-        for name, subparser in action._name_parser_map.items():  # type: ignore[attr-defined]
-            parts.append(self._format_action(subparser))
+        for subaction in action._choices_actions:  # type: ignore[attr-defined]
+            parts.append(self._format_action(subaction))
         return "\n".join(parts)
 
     def _format_usage(self, usage, actions, groups, prefix):
@@ -95,7 +95,13 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
 
     def _format_action(self, action: argparse.Action) -> str:
         if isinstance(action, argparse._SubParsersAction):
-            return self._format_subparsers(action)
+            parts = []
+            for name, parser in action._name_parser_map.items():  # type: ignore[attr-defined]
+                for subaction in action._choices_actions:  # type: ignore[attr-defined]
+                    if subaction.dest == name:
+                        parts.append(self._format_action(subaction))
+                        break
+            return "\n".join(parts)
 
         result = super()._format_action(action)
         theme = self._help_theme
