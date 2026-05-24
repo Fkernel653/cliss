@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import inspect
 import sys
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional
 
 from .argument import Argument
 from .utils import get_type_from_annotation, is_bool_type
@@ -20,6 +20,7 @@ class CLI:
         description: Optional[str] = None,
         version: Optional[str] = None,
         auto_help: bool = True,
+        helper: Literal["argparse", "cliss"] = "cliss",
         colour: bool = True,
     ):
         """
@@ -30,18 +31,20 @@ class CLI:
             description: Description of the application (shown in help).
             version: Version string for --version flag. If provided, adds automatic version display.
             auto_help: Whether to automatically add a --help flag.
+            helper: Help system to use ("argparse" or "cliss").
             colour: Whether to enable coloured output in help and error messages.
         """
         self.name = name
         self.description = description
         self.version = version
         self.colour = colour
+        self.helper_type = helper
         self._commands: Dict[str, dict] = {}
 
         parser_kwargs: Dict[str, Any] = {
             "prog": name,
             "description": description,
-            "add_help": auto_help,
+            "add_help": auto_help and helper == "argparse",
         }
 
         if colour and sys.version_info >= (3, 14):
@@ -54,6 +57,13 @@ class CLI:
 
         if version:
             self.parser.add_argument("--version", action="version", version=version)
+
+        if helper == "cliss":
+            from .help import Help
+
+            self.help_system = Help(self)
+        else:
+            self.help_system = None
 
     def add_global_argument(self, *flags: str, **kwargs: Any) -> None:
         """
@@ -90,6 +100,8 @@ class CLI:
         sub_cli.description = description
         sub_cli.version = None
         sub_cli.colour = self.colour
+        sub_cli.helper_type = self.helper_type
+        sub_cli.help_system = self.help_system
         sub_cli.parser = group_parser
         sub_cli.subparsers = group_sub
         sub_cli._commands = self._commands
@@ -120,6 +132,8 @@ class CLI:
         def decorator(func: Callable) -> Callable:
             cmd_name = name or func.__name__.replace("_", "-")
             cmd_help = description or (func.__doc__ or "").strip()
+
+            is_async = inspect.iscoroutinefunction(func)
 
             parser = self.subparsers.add_parser(
                 cmd_name,
@@ -171,7 +185,11 @@ class CLI:
                 if self.name and self.name != self.parser.prog
                 else cmd_name
             )
-            self._commands[full_name] = {"func": func, "parser": parser}
+            self._commands[full_name] = {
+                "func": func,
+                "parser": parser,
+                "is_async": is_async,
+            }
             return func
 
         return decorator
@@ -206,6 +224,27 @@ class CLI:
             help=help_off,
         )
 
+    def print_help(self, command_name: Optional[str] = None) -> None:
+        """Print help using the configured help system."""
+        if self.help_system and self.helper_type == "cliss":
+            if command_name:
+                command_info = self._commands.get(command_name)
+                if command_info:
+                    self.help_system.print_help(command_info["parser"], command_name)
+                else:
+                    self.help_system.print_help(self.parser)
+            else:
+                self.help_system.print_help(self.parser)
+        else:
+            if command_name:
+                command_info = self._commands.get(command_name)
+                if command_info:
+                    command_info["parser"].print_help()
+                else:
+                    self.parser.print_help()
+            else:
+                self.parser.print_help()
+
     def run(self, args: Optional[List[str]] = None) -> None:
         """
         Parse command-line arguments and execute the appropriate command.
@@ -216,11 +255,15 @@ class CLI:
         args = args if args is not None else sys.argv[1:]
 
         if not args:
-            self.parser.print_help()
+            self.print_help()
             return
 
         try:
             namespace = self.parser.parse_args(args)
+
+            if self.helper_type == "cliss" and getattr(namespace, "help", False):
+                self.print_help()
+                return
 
             namespace_dict = vars(namespace)
 
@@ -235,23 +278,26 @@ class CLI:
 
             command_info = self._commands.get(full_command)
             if command_info is None:
-                self.parser.print_help()
+                self.print_help()
                 return
 
             func_kwargs = {
                 k: v for k, v in namespace_dict.items() if not k.startswith("_")
             }
-            result = command_info["func"](**func_kwargs)
 
-            if hasattr(result, "__await__"):
+            if command_info.get("is_async"):
                 import asyncio
 
-                result = asyncio.run(result)
+                result = asyncio.run(command_info["func"](**func_kwargs))
+            else:
+                result = command_info["func"](**func_kwargs)
 
             if result is not None:
                 sys.stdout.write(str(result) + "\n")
 
         except SystemExit as e:
+            if e.code == 0 and self.helper_type == "cliss":
+                return
             if e.code is not None and e.code != 0:
                 raise
         except (ValueError, TypeError) as e:

@@ -15,6 +15,7 @@ Write type-annotated Python functions, get a full CLI — automatic `--help`, va
 - **Flexible** — Declarative `Argument` objects, type inference, or both
 - **Async-Native** — `async def` handlers with automatic event loop management
 - **Global Args** — Define flags shared across all commands
+- **Customizable Help** — Choose between standard `argparse` help or an advanced `cliss` help system with themes and examples
 - **Coloured Help** — Automatic coloured output on Python 3.14+, ANSI fallback for older versions
 - **Bool Flags** — Automatic `--name`/`--no-name` mutually exclusive group
 - **argparse Access** — Full access to underlying parsers for advanced use
@@ -58,7 +59,7 @@ $ python todo.py add "Test" --no-done
 
 ### `CLI` class
 ```python
-CLI(name="myapp", description="...", version="1.0.0", auto_help=True, colour=True)
+CLI(name="myapp", description="...", version="1.0.0", auto_help=True, colour=True, helper="cliss")
 ```
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -67,6 +68,29 @@ CLI(name="myapp", description="...", version="1.0.0", auto_help=True, colour=Tru
 | `version` | `Optional[str]` | `None` | Adds `--version` flag |
 | `auto_help` | `bool` | `True` | Adds `--help` flag |
 | `colour` | `bool` | `True` | Coloured help (3.14+ native, else ANSI) |
+| `helper` | `Literal["argparse", "cliss"]` | `"cliss"` | Help system to use |
+
+### `Help` System
+When `helper="cliss"`, you get an extended help system accessible via `cli.help_system`.
+
+#### `HelpTheme`
+Configure colors and styles for your help output. Available styles: `\033[1m` (bold), `\033[2m` (dim), `\033[32m` (green), `\033[33m` (yellow), and more.
+```python
+from cliss import HelpTheme
+theme = HelpTheme(usage="\033[1m", header="\033[1m", option_string="\033[32m", metavar="\033[33m")
+cli = CLI(helper="cliss", theme=theme)
+```
+
+#### Registering Additional Command Help
+Add long descriptions and usage examples for your commands.
+```python
+cli.help_system.register_command_help(
+    "add",
+    help_text="Add a new task to the list with optional priority.",
+    usage="todo add <task> [--priority <int>]",
+    examples=["todo add 'Buy milk' --priority 2", "todo add 'Call mom' --done"]
+)
+```
 
 ### `Argument` class
 ```python
@@ -162,6 +186,9 @@ Automatic `--name`/`--no-name` mutually exclusive group. `store_true` by default
 
 ### Async?
 `async def` handlers auto-run with `asyncio.run()`. Sync functions returning coroutines also work.
+
+### Custom Help Themes?
+Yes! When using `helper="cliss"`, you can pass a `HelpTheme` instance to style the help output. You can also register long descriptions and usage examples for each command.
 
 ### argparse access?
 `cli.parser` and `cli.subparsers` are standard argparse objects. Mutually exclusive groups, custom actions, parent parsers — all available.
