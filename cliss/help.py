@@ -32,8 +32,8 @@ class HelpTheme:
         self,
         usage: str = WHITE,
         header: str = f"{BOLD}{GREEN}",
-        option_string: str = CYAN,
-        metavar: str = CYAN,
+        option_string: str = f"{BOLD}{CYAN}",
+        metavar: str = f"{BOLD}{CYAN}",
         description: str = DIM,
     ):
         self.usage = usage
