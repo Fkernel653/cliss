@@ -59,11 +59,18 @@ class CLI:
             self.parser.add_argument("--version", action="version", version=version)
 
         if helper == "cliss":
-            from .help import Help
+            from .help import Help, HelpFormatter
 
             self.help_system = Help(self)
+            self.parser.formatter_class = HelpFormatter
+            self.subparsers = self.parser.add_subparsers(
+                dest="_command", title="Commands"
+            )
         else:
             self.help_system = None
+            self.subparsers = self.parser.add_subparsers(
+                dest="_command", title="Commands"
+            )
 
     def add_global_argument(self, *flags: str, **kwargs: Any) -> None:
         """

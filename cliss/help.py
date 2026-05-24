@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, TextIO, TypedDict
+from typing import TYPE_CHECKING, Dict, List, Optional, TextIO, TypedDict
 
 if TYPE_CHECKING:
     from .cli import CLI
@@ -16,57 +16,6 @@ class CommandHelpInfo(TypedDict, total=False):
     help: Optional[str]
     usage: Optional[str]
     examples: List[str]
-
-
-class HelpFormatter(argparse.HelpFormatter):
-    """Extended help formatter with colour support and custom formatting."""
-
-    def __init__(
-        self,
-        prog: str,
-        indent_increment: int = 2,
-        max_help_position: int = 24,
-        width: Optional[int] = None,
-        colour: bool = True,
-    ):
-        super().__init__(prog, indent_increment, max_help_position, width)
-        self.colour = colour
-
-    def _format_usage(
-        self,
-        usage: Optional[str],
-        actions: Iterable[argparse.Action],
-        groups: Iterable[argparse._ArgumentGroup],
-        prefix: Optional[str],
-    ) -> str:
-        if prefix is None:
-            prefix = "Usage: "
-        return super()._format_usage(usage, actions, groups, prefix)
-
-    def _format_action(self, action: argparse.Action) -> str:
-        """Override to add colour and custom formatting for actions."""
-        result = super()._format_action(action)
-        return result
-
-    def _format_action_invocation(self, action: argparse.Action) -> str:
-        """Override to format action invocations with colour."""
-        if not action.option_strings:
-            default = self._get_default_metavar_for_positional(action)
-            (metavar,) = self._metavar_formatter(action, default)(1)
-            return metavar
-
-        parts = []
-        if action.option_strings:
-            parts.extend(action.option_strings)
-        return ", ".join(parts)
-
-    def _metavar_formatter(self, action: argparse.Action, default_metavar: str):
-        """Override to add colour to metavar."""
-        if action.metavar is not None:
-            result = super()._metavar_formatter(action, default_metavar)
-        else:
-            result = super()._metavar_formatter(action, default_metavar)
-        return result
 
 
 class HelpTheme:
@@ -94,6 +43,103 @@ class HelpTheme:
         self.metavar = metavar
         self.description = description
 
+    def apply(self, text: str, style: str) -> str:
+        """Apply a style to text if colours are enabled."""
+        if not text:
+            return text
+        return f"{style}{text}{self.RESET}"
+
+
+class HelpFormatter(argparse.RawDescriptionHelpFormatter):
+    """Extended help formatter with colour support and custom formatting."""
+
+    def __init__(
+        self,
+        prog: str,
+        indent_increment: int = 2,
+        max_help_position: int = 24,
+        width: Optional[int] = None,
+    ):
+        super().__init__(prog, indent_increment, max_help_position, width)
+        self._theme = None
+
+    def set_theme(self, theme: HelpTheme) -> None:
+        """Set the colour theme."""
+        self._theme = theme
+
+    def _format_usage(self, usage, actions, groups, prefix):
+        """Override to add colour to usage section."""
+        if prefix is None:
+            prefix = "Usage: "
+
+        formatted = super()._format_usage(usage, actions, groups, prefix)
+
+        if self._theme:
+            lines = formatted.split("\n")
+            coloured_lines = []
+            for line in lines:
+                if line.startswith("Usage:"):
+                    parts = line.split(":", 1)
+                    coloured_lines.append(
+                        f"{self._theme.apply('Usage:', self._theme.usage)}"
+                        f"{self._theme.apply(parts[1], self._theme.description)}"
+                    )
+                else:
+                    coloured_lines.append(line)
+            return "\n".join(coloured_lines)
+
+        return formatted
+
+    def _format_action(self, action: argparse.Action) -> str:
+        """Override to add colour to action formatting."""
+        result = super()._format_action(action)
+
+        if self._theme and action.option_strings:
+            for opt in action.option_strings:
+                if opt in result:
+                    result = result.replace(
+                        opt, self._theme.apply(opt, self._theme.option_string)
+                    )
+
+        return result
+
+    def _format_action_invocation(self, action: argparse.Action) -> str:
+        """Override to format action invocations with colour."""
+        if not action.option_strings:
+            default = self._get_default_metavar_for_positional(action)
+            (metavar,) = self._metavar_formatter(action, default)(1)
+            return metavar
+
+        parts = []
+        if action.option_strings:
+            for opt in action.option_strings:
+                if self._theme:
+                    parts.append(self._theme.apply(opt, self._theme.option_string))
+                else:
+                    parts.append(opt)
+
+        return ", ".join(parts)
+
+    def _metavar_formatter(self, action: argparse.Action, default_metavar: str):
+        """Override to add colour to metavar."""
+        original_formatter = super()._metavar_formatter(action, default_metavar)
+
+        theme = self._theme
+
+        if theme is not None:
+
+            def coloured_formatter(size: int) -> tuple[str, ...]:
+                metavars = original_formatter(size)
+                if metavars:
+                    return tuple(
+                        theme.apply(m, theme.metavar) if m else m for m in metavars
+                    )
+                return metavars
+
+            return coloured_formatter
+
+        return original_formatter
+
 
 class Help:
     """Help system for CLI — manages help text generation and display."""
@@ -119,6 +165,16 @@ class Help:
         self.max_help_position = max_help_position
         self.width = width
         self._commands_help: Dict[str, CommandHelpInfo] = {}
+
+    def _create_formatter(self, parser: argparse.ArgumentParser) -> HelpFormatter:
+        """Create and configure a help formatter."""
+        formatter = HelpFormatter(
+            parser.prog,
+            max_help_position=self.max_help_position,
+            width=self.width,
+        )
+        formatter.set_theme(self.theme)
+        return formatter
 
     def register_command_help(
         self,
@@ -152,7 +208,8 @@ class Help:
         Returns:
             Formatted help string.
         """
-        formatter = parser._get_formatter()
+        # Use our custom formatter
+        formatter = self._create_formatter(parser)
 
         # Usage
         formatter.add_usage(
@@ -192,19 +249,25 @@ class Help:
         """
         custom = self._commands_help.get(command_name, {})
 
-        if custom:
-            custom_usage = custom.get("usage")
-            if custom_usage:
-                parser.usage = custom_usage
+        # Create a modified parser with custom usage if needed
+        if custom.get("usage"):
+            # Store original and set custom
+            original_usage = parser.usage
+            parser.usage = custom["usage"]
+        else:
+            original_usage = None
 
         help_text = self.format_help(parser)
 
-        if custom:
-            examples = custom.get("examples", [])
-            if examples:
-                help_text += "\nExamples:\n"
-                for example in examples:
-                    help_text += f"  {example}\n"
+        # Restore original usage
+        if original_usage is not None:
+            parser.usage = original_usage
+
+        # Add examples
+        if custom.get("examples"):
+            help_text += "\nExamples:\n"
+            for example in custom["examples"]:
+                help_text += f"  {example}\n"
 
         return help_text
 
