@@ -69,7 +69,6 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         self._help_theme = theme
 
     def _format_usage(self, usage, actions, groups, prefix):
-        """Override to add colour to usage section."""
         if prefix is None:
             prefix = "Usage: "
         formatted = super()._format_usage(usage, actions, groups, prefix)
@@ -88,7 +87,6 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         return "\n".join(lines)
 
     def _format_action(self, action: argparse.Action) -> str:
-        """Override to add colour to action formatting."""
         result = super()._format_action(action)
         theme = self._help_theme
         if theme and action.option_strings:
@@ -98,7 +96,6 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         return result
 
     def _format_action_invocation(self, action: argparse.Action) -> str:
-        """Override to format action invocations with colour."""
         if not action.option_strings:
             default = self._get_default_metavar_for_positional(action)
             (metavar,) = self._metavar_formatter(action, default)(1)
@@ -110,7 +107,6 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         )
 
     def _metavar_formatter(self, action: argparse.Action, default_metavar: str):
-        """Override to add colour to metavar."""
         original_formatter = super()._metavar_formatter(action, default_metavar)
         theme = self._help_theme
         if theme is None:
@@ -127,7 +123,6 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         return coloured_formatter
 
     def start_section(self, heading: Optional[str]) -> None:
-        """Override to add colour to section headings."""
         if heading and self._help_theme:
             heading = self._help_theme.apply_header(heading)
         super().start_section(heading)
