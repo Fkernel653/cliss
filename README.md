@@ -6,7 +6,7 @@
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey)]()
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-261230?logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
 
-Write type-annotated Python functions, get a full CLI — automatic `--help`, validation, and async support with zero dependencies.
+Write type-annotated Python functions, get a full CLI — automatic `--help`, validation, and async support.
 
 ## ✨ Features
 
@@ -15,8 +15,7 @@ Write type-annotated Python functions, get a full CLI — automatic `--help`, va
 - **Flexible** — Declarative `Argument` objects, type inference, or both
 - **Async-Native** — `async def` handlers with automatic event loop management
 - **Global Args** — Define flags shared across all commands
-- **Customizable Help** — Choose between standard `argparse` help or an advanced `cliss` help system with themes and examples
-- **Coloured Help** — Automatic coloured output on Python 3.14+, ANSI fallback for older versions
+- **Coloured Help** — Beautiful terminal output via [color-kiss](https://pypi.org/project/color-kiss/), an ultra-lightweight library for readability and development speed
 - **Bool Flags** — Automatic `--name`/`--no-name` mutually exclusive group
 - **argparse Access** — Full access to underlying parsers for advanced use
 
@@ -59,37 +58,21 @@ $ python todo.py add "Test" --no-done
 
 ### `CLI` class
 ```python
-CLI(name="myapp", description="...", version="1.0.0", auto_help=True, colour=True, helper="cliss")
+CLI(name="myapp", description="...", version="1.0.0", colour=True)
 ```
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `name` | `Optional[str]` | `None` | Program name in help |
 | `description` | `Optional[str]` | `None` | Description in help |
 | `version` | `Optional[str]` | `None` | Adds `--version` flag |
-| `auto_help` | `bool` | `True` | Adds `--help` flag |
-| `colour` | `bool` | `True` | Coloured help (3.14+ native, else ANSI) |
-| `helper` | `Literal["argparse", "cliss"]` | `"cliss"` | Help system to use |
+| `colour` | `bool` | `True` | Coloured output via [color-kiss](https://github.com/Fkernel653/color-kiss) |
+| `usager` | `Optional[str]` | `"{self.name} [COMMAND] [OPTIONS] ...\n"` | Custom usage string |
 
-### `Help` System
-When `helper="cliss"`, you get an extended help system accessible via `cli.help_system`.
-
-#### `HelpTheme`
-Configure colors and styles for your help output. Available styles: `\033[1m` (bold), `\033[2m` (dim), `\033[32m` (green), `\033[33m` (yellow), and more.
+### Colours with `color-kiss`
+cliss uses [color-kiss](https://pypi.org/project/color-kiss/) — an ultra-lightweight ANSI color library — for readable, fast, and dependency-free terminal styling. No bloat, just colors.
 ```python
-from cliss import HelpTheme
-theme = HelpTheme(usage="\033[1m", header="\033[1m", option_string="\033[32m", metavar="\033[33m")
-cli = CLI(helper="cliss", theme=theme)
-```
-
-#### Registering Additional Command Help
-Add long descriptions and usage examples for your commands.
-```python
-cli.help_system.register_command_help(
-    "add",
-    help_text="Add a new task to the list with optional priority.",
-    usage="todo add <task> [--priority <int>]",
-    examples=["todo add 'Buy milk' --priority 2", "todo add 'Call mom' --done"]
-)
+from color_kiss import BOLD_GREEN, BOLD_RED, RESET
+print(f"{BOLD_GREEN}Success!{RESET}")
 ```
 
 ### `Argument` class
@@ -174,21 +157,18 @@ async def fetch(url: str, retries: int = 3):
 ### Why cliss over argparse/Click/Typer/Fire?
 | Tool | Deps | Style |
 |------|------|-------|
-| **cliss** | 0 | Decorators + type hints |
+| **cliss** | 0 + [color-kiss](https://pypi.org/project/color-kiss/) (lightweight) | Decorators + type hints |
+| Fire | 2 ([termcolor](https://pypi.org/project/termcolor/), [colorama](https://pypi.org/project/colorama/))  | Introspection |
 | Click | Click | Decorators |
 | Typer | Click + typing-extensions | Type hints |
-| Fire | 0 | Introspection |
 
-cliss = Fire's zero-deps + Typer's type-driven design. ~200 lines, pure stdlib.
+cliss = Fire's zero-bloat philosophy + Typer's type-driven design. ~200 lines, pure stdlib, with [color-kiss](https://github.com/Fkernel653/color-kiss) for pretty output.
 
 ### Bool flags?
 Automatic `--name`/`--no-name` mutually exclusive group. `store_true` by default, `store_false` if default is `True`.
 
 ### Async?
 `async def` handlers auto-run with `asyncio.run()`. Sync functions returning coroutines also work.
-
-### Custom Help Themes?
-Yes! When using `helper="cliss"`, you can pass a `HelpTheme` instance to style the help output. You can also register long descriptions and usage examples for each command.
 
 ### argparse access?
 `cli.parser` and `cli.subparsers` are standard argparse objects. Mutually exclusive groups, custom actions, parent parsers — all available.
