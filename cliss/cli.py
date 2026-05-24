@@ -259,6 +259,17 @@ class CLI:
             return
 
         try:
+            if self.helper_type == "cliss" and any(
+                arg in ("--help", "-h") for arg in args
+            ):
+                command_name = None
+                for arg in args:
+                    if not arg.startswith("-"):
+                        command_name = arg
+                        break
+                self.print_help(command_name)
+                return
+
             namespace = self.parser.parse_args(args)
 
             if self.helper_type == "cliss" and getattr(namespace, "help", False):
