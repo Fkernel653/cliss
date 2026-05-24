@@ -62,11 +62,22 @@ class CLI:
 
         self.parser = argparse.ArgumentParser(**parser_kwargs)
         self.subparsers = self.parser.add_subparsers(
-            dest="_command", title="Commands", metavar="COMMAND"
+            dest="_command",
+            title="Commands",
         )
+        self.parser.usage = f"{self.name} [OPTIONS] [COMMAND] ...\n"
 
         if version:
             self.parser.add_argument("--version", action="version", version=version)
+
+        if auto_help:
+            self.parser.add_argument(
+                "-h",
+                "--help",
+                action="help",
+                default=argparse.SUPPRESS,
+                help="Print help",
+            )
 
     def add_global_argument(self, *flags: str, **kwargs: Any) -> None:
         """

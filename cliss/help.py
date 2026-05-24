@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from typing import TYPE_CHECKING, Dict, List, Optional, TextIO, TypedDict
 
@@ -54,11 +55,13 @@ class HelpTheme:
 class HelpFormatter(argparse.RawDescriptionHelpFormatter):
     """Extended help formatter with Cargo-style colour support."""
 
+    _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
+
     def __init__(
         self,
         prog: str,
         indent_increment: int = 2,
-        max_help_position: int = 24,
+        max_help_position: int = 22,
         width: Optional[int] = None,
     ):
         super().__init__(prog, indent_increment, max_help_position, width)
@@ -68,13 +71,10 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         """Set the colour theme."""
         self._help_theme = theme
 
-    def _format_subparsers(self, action: argparse.Action) -> str:
-        """Format subparsers without duplicate metavar line."""
-        parts = []
-        for subaction in action._choices_actions:  # type: ignore[attr-defined]
-            part = self._format_action(subaction).strip("\n")
-            parts.append(part)
-        return "\n".join(parts)
+    @staticmethod
+    def _visible_len(text: str) -> int:
+        """Return visible length of string without ANSI codes."""
+        return len(HelpFormatter._ANSI_RE.sub("", text))
 
     def _format_usage(self, usage, actions, groups, prefix):
         if prefix is None:
@@ -84,33 +84,48 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         if theme is None:
             return formatted
         lines = []
-        for line in formatted.split("\n"):
-            if line.startswith("Usage:"):
+        for i, line in enumerate(formatted.split("\n")):
+            if i == 0 and line.startswith("Usage:"):
                 parts = line.split(":", 1)
                 lines.append(
                     f"{theme.apply_header('Usage:')} {theme.apply(parts[1].strip(), theme.usage)}"
                 )
+            elif i > 0 and line.strip():
+                lines.append(f"       {theme.apply(line.strip(), theme.usage)}")
             else:
                 lines.append(line)
         return "\n".join(lines)
 
+    def _format_subparsers(self, action: argparse.Action) -> str:
+        parts = []
+        for subaction in action._choices_actions:  # type: ignore[attr-defined]
+            part = self._format_action(subaction).rstrip("\n")
+            parts.append(part)
+        return "\n".join(parts)
+
     def _format_action(self, action: argparse.Action) -> str:
         if isinstance(action, argparse._SubParsersAction):
-            parts = []
-            for name, parser in action._name_parser_map.items():  # type: ignore[attr-defined]
-                for subaction in action._choices_actions:  # type: ignore[attr-defined]
-                    if subaction.dest == name:
-                        parts.append(self._format_action(subaction))
-                        break
-            return "\n".join(parts)
+            return self._format_subparsers(action)
 
-        result = super()._format_action(action)
-        theme = self._help_theme
-        if theme and action.option_strings:
-            for opt in action.option_strings:
-                if opt in result:
-                    result = result.replace(opt, theme.apply(opt, theme.option_string))
-        return result
+        if action.help is None:
+            return super()._format_action(action)
+
+        invocation = self._format_action_invocation(action)
+        visible_invocation_len = self._visible_len(invocation)
+
+        if visible_invocation_len >= self._max_help_position:
+            indent = self._max_help_position
+        else:
+            indent = visible_invocation_len
+
+        help_text = self._expand_help(action)
+
+        result = "  " + invocation
+        if action.help:
+            padding = self._max_help_position - indent
+            result += " " * padding + help_text
+
+        return result + "\n"
 
     def _format_action_invocation(self, action: argparse.Action) -> str:
         if not action.option_strings:
@@ -141,7 +156,7 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
 
     def start_section(self, heading: Optional[str]) -> None:
         if heading and self._help_theme:
-            heading = self._help_theme.apply_header(heading)
+            heading = self._help_theme.apply_header(heading.capitalize())
         super().start_section(heading)
 
 
@@ -152,7 +167,7 @@ class Help:
         self,
         cli: "CLI",
         theme: Optional[HelpTheme] = None,
-        max_help_position: int = 30,
+        max_help_position: int = 22,
         width: Optional[int] = None,
     ):
         """
@@ -185,15 +200,7 @@ class Help:
         usage: Optional[str] = None,
         examples: Optional[List[str]] = None,
     ) -> None:
-        """
-        Register custom help information for a command.
-
-        Args:
-            command_name: Name of the command.
-            help_text: Custom help text.
-            usage: Custom usage string.
-            examples: List of usage examples.
-        """
+        """Register custom help information for a command."""
         self._commands_help[command_name] = {
             "help": help_text,
             "usage": usage,
@@ -201,15 +208,7 @@ class Help:
         }
 
     def format_help(self, parser: argparse.ArgumentParser) -> str:
-        """
-        Format help text for a parser.
-
-        Args:
-            parser: The argument parser to generate help for.
-
-        Returns:
-            Formatted help string.
-        """
+        """Format help text for a parser."""
         formatter = self._create_formatter(parser)
         formatter.add_usage(
             parser.usage, parser._actions, parser._mutually_exclusive_groups
@@ -227,16 +226,7 @@ class Help:
     def format_command_help(
         self, command_name: str, parser: argparse.ArgumentParser
     ) -> str:
-        """
-        Format help text for a specific command.
-
-        Args:
-            command_name: Name of the command.
-            parser: The command's argument parser.
-
-        Returns:
-            Formatted help string for the command.
-        """
+        """Format help text for a specific command."""
         custom = self._commands_help.get(command_name, {})
         custom_usage = custom.get("usage") if custom else None
         original_usage = None
@@ -258,14 +248,7 @@ class Help:
         command_name: Optional[str] = None,
         file: Optional[TextIO] = None,
     ) -> None:
-        """
-        Print help text to the specified output.
-
-        Args:
-            parser: The parser to generate help for. Defaults to CLI's main parser.
-            command_name: Name of the command for context-specific help.
-            file: Output file. Defaults to stdout.
-        """
+        """Print help text to the specified output."""
         parser = parser or self.cli.parser
         help_text = (
             self.format_command_help(command_name, parser)
