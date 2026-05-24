@@ -39,5 +39,5 @@ Homepage = "https://github.com/Fkernel653/cliss"
 Repository = "https://github.com/Fkernel653/cliss.git"
 Documentation = "https://github.com/Fkernel653/cliss#readme"
 
-[tool.setuptools.packages.find]
+[tool.hatch.build.targets.wheel]
 include = ["cliss*"]
