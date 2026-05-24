@@ -31,9 +31,9 @@ class HelpTheme:
     def __init__(
         self,
         usage: str = WHITE,
-        header: str = f"{BOLD}{GREEN}",
-        option_string: str = f"{BOLD}{CYAN}",
-        metavar: str = f"{BOLD}{CYAN}",
+        header: str = BOLD + GREEN,
+        option_string: str = BOLD + CYAN,
+        metavar: str = BOLD + CYAN,
         description: str = DIM,
     ):
         self.usage = usage
