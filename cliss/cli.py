@@ -61,7 +61,9 @@ class CLI:
             parser_kwargs["formatter_class"] = argparse.RawDescriptionHelpFormatter
 
         self.parser = argparse.ArgumentParser(**parser_kwargs)
-        self.subparsers = self.parser.add_subparsers(dest="_command", title="Commands")
+        self.subparsers = self.parser.add_subparsers(
+            dest="_command", title="Commands", metavar="COMMAND"
+        )
 
         if version:
             self.parser.add_argument("--version", action="version", version=version)
