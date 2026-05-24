@@ -47,6 +47,14 @@ class CLI:
             "add_help": auto_help and helper == "argparse",
         }
 
+        if helper == "cliss":
+            from .help import Help, HelpFormatter
+
+            self.help_system = Help(self)
+            parser_kwargs["formatter_class"] = HelpFormatter
+        else:
+            self.help_system = None
+
         if colour and sys.version_info >= (3, 14):
             parser_kwargs["color"] = True
         elif colour:
@@ -57,20 +65,6 @@ class CLI:
 
         if version:
             self.parser.add_argument("--version", action="version", version=version)
-
-        if helper == "cliss":
-            from .help import Help, HelpFormatter
-
-            self.help_system = Help(self)
-            self.parser.formatter_class = HelpFormatter
-            self.subparsers = self.parser.add_subparsers(
-                dest="_command", title="Commands"
-            )
-        else:
-            self.help_system = None
-            self.subparsers = self.parser.add_subparsers(
-                dest="_command", title="Commands"
-            )
 
     def add_global_argument(self, *flags: str, **kwargs: Any) -> None:
         """
