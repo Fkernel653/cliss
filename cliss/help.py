@@ -32,7 +32,7 @@ class HelpTheme:
         self,
         usage: str = WHITE,
         header: str = f"{BOLD}{GREEN}",
-        option_string: str = GREEN,
+        option_string: str = CYAN,
         metavar: str = CYAN,
         description: str = DIM,
     ):
