@@ -19,22 +19,21 @@ class CommandHelpInfo(TypedDict, total=False):
 
 
 class HelpTheme:
-    """Theme configuration for help output."""
+    """Theme configuration for help output in Cargo style."""
 
     RESET = "\033[0m"
     BOLD = "\033[1m"
     DIM = "\033[2m"
     GREEN = "\033[32m"
-    YELLOW = "\033[33m"
-    BLUE = "\033[34m"
     CYAN = "\033[36m"
+    WHITE = "\033[37m"
 
     def __init__(
         self,
-        usage: str = BOLD,
-        header: str = BOLD,
+        usage: str = WHITE,
+        header: str = f"{BOLD}{GREEN}",
         option_string: str = GREEN,
-        metavar: str = YELLOW,
+        metavar: str = CYAN,
         description: str = DIM,
     ):
         self.usage = usage
@@ -45,13 +44,15 @@ class HelpTheme:
 
     def apply(self, text: str, style: str) -> str:
         """Apply a style to text if colours are enabled."""
-        if not text:
-            return text
-        return f"{style}{text}{self.RESET}"
+        return f"{style}{text}{self.RESET}" if text else text
+
+    def apply_header(self, text: str) -> str:
+        """Apply header style (bold green for cargo-like headers)."""
+        return self.apply(text, self.header)
 
 
 class HelpFormatter(argparse.RawDescriptionHelpFormatter):
-    """Extended help formatter with colour support and custom formatting."""
+    """Extended help formatter with Cargo-style colour support."""
 
     def __init__(
         self,
@@ -71,38 +72,29 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         """Override to add colour to usage section."""
         if prefix is None:
             prefix = "Usage: "
-
         formatted = super()._format_usage(usage, actions, groups, prefix)
-
         theme = self._help_theme
-
-        if theme is not None:
-            lines = formatted.split("\n")
-            coloured_lines = []
-            for line in lines:
-                if line.startswith("Usage:"):
-                    parts = line.split(":", 1)
-                    coloured_lines.append(
-                        f"{theme.apply('Usage:', theme.usage)}"
-                        f"{theme.apply(parts[1], theme.description)}"
-                    )
-                else:
-                    coloured_lines.append(line)
-            return "\n".join(coloured_lines)
-
-        return formatted
+        if theme is None:
+            return formatted
+        lines = []
+        for line in formatted.split("\n"):
+            if line.startswith("Usage:"):
+                parts = line.split(":", 1)
+                lines.append(
+                    f"{theme.apply_header('Usage:')} {theme.apply(parts[1].strip(), theme.usage)}"
+                )
+            else:
+                lines.append(line)
+        return "\n".join(lines)
 
     def _format_action(self, action: argparse.Action) -> str:
         """Override to add colour to action formatting."""
         result = super()._format_action(action)
-
         theme = self._help_theme
-
-        if theme is not None and action.option_strings:
+        if theme and action.option_strings:
             for opt in action.option_strings:
                 if opt in result:
                     result = result.replace(opt, theme.apply(opt, theme.option_string))
-
         return result
 
     def _format_action_invocation(self, action: argparse.Action) -> str:
@@ -111,37 +103,34 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
             default = self._get_default_metavar_for_positional(action)
             (metavar,) = self._metavar_formatter(action, default)(1)
             return metavar
-
         theme = self._help_theme
-        parts = []
-        if action.option_strings:
-            for opt in action.option_strings:
-                if theme is not None:
-                    parts.append(theme.apply(opt, theme.option_string))
-                else:
-                    parts.append(opt)
-
-        return ", ".join(parts)
+        return ", ".join(
+            theme.apply(opt, theme.option_string) if theme else opt
+            for opt in action.option_strings
+        )
 
     def _metavar_formatter(self, action: argparse.Action, default_metavar: str):
         """Override to add colour to metavar."""
         original_formatter = super()._metavar_formatter(action, default_metavar)
-
         theme = self._help_theme
+        if theme is None:
+            return original_formatter
 
-        if theme is not None:
+        def coloured_formatter(size: int) -> tuple[str, ...]:
+            metavars = original_formatter(size)
+            return (
+                tuple(theme.apply(m, theme.metavar) if m else m for m in metavars)
+                if metavars
+                else metavars
+            )
 
-            def coloured_formatter(size: int) -> tuple[str, ...]:
-                metavars = original_formatter(size)
-                if metavars:
-                    return tuple(
-                        theme.apply(m, theme.metavar) if m else m for m in metavars
-                    )
-                return metavars
+        return coloured_formatter
 
-            return coloured_formatter
-
-        return original_formatter
+    def start_section(self, heading: Optional[str]) -> None:
+        """Override to add colour to section headings."""
+        if heading and self._help_theme:
+            heading = self._help_theme.apply_header(heading)
+        super().start_section(heading)
 
 
 class Help:
@@ -172,9 +161,7 @@ class Help:
     def _create_formatter(self, parser: argparse.ArgumentParser) -> HelpFormatter:
         """Create and configure a help formatter."""
         formatter = HelpFormatter(
-            parser.prog,
-            max_help_position=self.max_help_position,
-            width=self.width,
+            parser.prog, max_help_position=self.max_help_position, width=self.width
         )
         formatter.set_theme(self.theme)
         return formatter
@@ -211,30 +198,18 @@ class Help:
         Returns:
             Formatted help string.
         """
-        # Use our custom formatter
         formatter = self._create_formatter(parser)
-
-        # Usage
         formatter.add_usage(
-            parser.usage,
-            parser._actions,
-            parser._mutually_exclusive_groups,
+            parser.usage, parser._actions, parser._mutually_exclusive_groups
         )
-
-        # Description
         if parser.description:
             formatter.add_text(parser.description)
-
-        # Positionals, optionals, user-defined groups
         for action_group in parser._action_groups:
             formatter.start_section(action_group.title)
             formatter.add_text(action_group.description)
             formatter.add_arguments(action_group._group_actions)
             formatter.end_section()
-
-        # Epilog
         formatter.add_text(parser.epilog)
-
         return formatter.format_help()
 
     def format_command_help(
@@ -251,27 +226,18 @@ class Help:
             Formatted help string for the command.
         """
         custom = self._commands_help.get(command_name, {})
-
-        # Create a modified parser with custom usage if needed
-        if custom.get("usage"):
-            # Store original and set custom
-            original_usage = parser.usage
-            parser.usage = custom["usage"]
-        else:
-            original_usage = None
-
+        custom_usage = custom.get("usage") if custom else None
+        original_usage = None
+        if custom_usage:
+            original_usage, parser.usage = parser.usage, custom_usage
         help_text = self.format_help(parser)
-
-        # Restore original usage
         if original_usage is not None:
             parser.usage = original_usage
-
-        # Add examples
-        if custom.get("examples"):
-            help_text += "\nExamples:\n"
-            for example in custom["examples"]:
-                help_text += f"  {example}\n"
-
+        if custom and "examples" in custom:
+            help_text += f"\n{self.theme.apply_header('EXAMPLES:')}\n"
+            help_text += "".join(
+                f"  {self.theme.apply(e, self.theme.DIM)}\n" for e in custom["examples"]
+            )
         return help_text
 
     def print_help(
@@ -289,43 +255,25 @@ class Help:
             file: Output file. Defaults to stdout.
         """
         parser = parser or self.cli.parser
-
-        if command_name:
-            help_text = self.format_command_help(command_name, parser)
-        else:
-            help_text = self.format_help(parser)
-
+        help_text = (
+            self.format_command_help(command_name, parser)
+            if command_name
+            else self.format_help(parser)
+        )
         (file or sys.stdout).write(help_text)
 
     def get_command_list(self) -> List[str]:
-        """
-        Get a list of all registered commands.
-
-        Returns:
-            List of command names.
-        """
+        """Get a list of all registered commands."""
         return list(self.cli._commands.keys())
 
     def add_examples(self, command_name: str, examples: List[str]) -> None:
-        """
-        Add usage examples for a command.
-
-        Args:
-            command_name: Name of the command.
-            examples: List of example strings.
-        """
+        """Add usage examples for a command."""
         if command_name not in self._commands_help:
             self._commands_help[command_name] = {}
         self._commands_help[command_name]["examples"] = examples
 
     def add_long_description(self, command_name: str, description: str) -> None:
-        """
-        Add a long description for a command.
-
-        Args:
-            command_name: Name of the command.
-            description: Extended description text.
-        """
+        """Add a long description for a command."""
         if command_name not in self._commands_help:
             self._commands_help[command_name] = {}
         self._commands_help[command_name]["help"] = description

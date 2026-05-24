@@ -133,7 +133,6 @@ class CLI:
         def decorator(func: Callable) -> Callable:
             cmd_name = name or func.__name__.replace("_", "-")
             cmd_help = description or (func.__doc__ or "").strip()
-
             is_async = inspect.iscoroutinefunction(func)
 
             parser = self.subparsers.add_parser(
@@ -144,7 +143,6 @@ class CLI:
             )
 
             explicit_dests = set()
-
             if arguments:
                 for arg in arguments:
                     kw = {
@@ -152,18 +150,12 @@ class CLI:
                         for k, v in vars(arg).items()
                         if k != "flags" and v is not None
                     }
-                    action = parser.add_argument(*arg.flags, **kw)
-                    explicit_dests.add(action.dest)
+                    explicit_dests.add(parser.add_argument(*arg.flags, **kw).dest)
 
-            sig = inspect.signature(func)
-            param_items = list(sig.parameters.items())
-
-            for param_name, param in param_items:
+            for param_name, param in inspect.signature(func).parameters.items():
                 if param_name in explicit_dests:
                     continue
-
                 has_default = param.default is not inspect.Parameter.empty
-
                 if not has_default:
                     parser.add_argument(
                         param_name,
@@ -204,25 +196,20 @@ class CLI:
             param.default if param.default is not inspect.Parameter.empty else False
         )
 
-        flag_on = f"--{base_flag}"
-        flag_off = f"--no-{base_flag}"
-        help_on = f"Enable {param_name}"
-        help_off = f"Disable {param_name}"
-
         group = parser.add_mutually_exclusive_group()
         group.add_argument(
-            flag_on,
+            f"--{base_flag}",
             action="store_true",
             default=default_val,
             dest=param_name,
-            help=help_on,
+            help=f"Enable {param_name}",
         )
         group.add_argument(
-            flag_off,
+            f"--no-{base_flag}",
             action="store_false",
             default=default_val,
             dest=param_name,
-            help=help_off,
+            help=f"Disable {param_name}",
         )
 
     def print_help(self, command_name: Optional[str] = None) -> None:
@@ -230,21 +217,17 @@ class CLI:
         if self.help_system and self.helper_type == "cliss":
             if command_name:
                 command_info = self._commands.get(command_name)
-                if command_info:
-                    self.help_system.print_help(command_info["parser"], command_name)
-                else:
-                    self.help_system.print_help(self.parser)
+                self.help_system.print_help(
+                    command_info["parser"] if command_info else self.parser,
+                    command_name,
+                )
             else:
                 self.help_system.print_help(self.parser)
+        elif command_name:
+            command_info = self._commands.get(command_name)
+            (command_info["parser"] if command_info else self.parser).print_help()
         else:
-            if command_name:
-                command_info = self._commands.get(command_name)
-                if command_info:
-                    command_info["parser"].print_help()
-                else:
-                    self.parser.print_help()
-            else:
-                self.parser.print_help()
+            self.parser.print_help()
 
     def run(self, args: Optional[List[str]] = None) -> None:
         """
@@ -263,11 +246,9 @@ class CLI:
             if self.helper_type == "cliss" and any(
                 arg in ("--help", "-h") for arg in args
             ):
-                command_name = None
-                for arg in args:
-                    if not arg.startswith("-"):
-                        command_name = arg
-                        break
+                command_name = next(
+                    (arg for arg in args if not arg.startswith("-")), None
+                )
                 self.print_help(command_name)
                 return
 
@@ -278,14 +259,12 @@ class CLI:
                 return
 
             namespace_dict = vars(namespace)
-
             command_parts = [namespace._command]
             command_parts.extend(
                 value
                 for key, value in namespace_dict.items()
                 if key.startswith("_group_") and value
             )
-
             full_command = ":".join(command_parts)
 
             command_info = self._commands.get(full_command)
