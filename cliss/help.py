@@ -94,6 +94,9 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         return "\n".join(lines)
 
     def _format_action(self, action: argparse.Action) -> str:
+        if isinstance(action, argparse._SubParsersAction):
+            return self._format_subparsers(action)
+
         result = super()._format_action(action)
         theme = self._help_theme
         if theme and action.option_strings:
