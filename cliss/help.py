@@ -72,8 +72,7 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         """Format subparsers without duplicate metavar line."""
         parts = []
         for subaction in action._choices_actions:  # type: ignore[attr-defined]
-            part = self._format_action(subaction)
-            part = part.rstrip("\n")
+            part = self._format_action(subaction).strip("\n")
             parts.append(part)
         return "\n".join(parts)
 
