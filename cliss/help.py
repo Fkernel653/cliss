@@ -72,7 +72,7 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         """Format subparsers without duplicate metavar line."""
         parts = []
         for subaction in action._choices_actions:  # type: ignore[attr-defined]
-            parts.append(self._format_action(subaction))
+            parts.append(self._format_action(subaction).rstrip())
         return "\n".join(parts)
 
     def _format_usage(self, usage, actions, groups, prefix):
@@ -151,7 +151,7 @@ class Help:
         self,
         cli: "CLI",
         theme: Optional[HelpTheme] = None,
-        max_help_position: int = 24,
+        max_help_position: int = 30,
         width: Optional[int] = None,
     ):
         """
