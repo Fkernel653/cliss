@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import inspect
-import re
 import sys
 from typing import Any, Callable, Dict, List, NoReturn, Optional
 
@@ -67,18 +66,11 @@ class CLI:
     def help_system(self, value):
         self._help_system = value
 
-    def _color_usage(self, usage_text: str) -> str:
-        """Apply colours: Usage green, [OPTIONS] cyan."""
-        usage_text = re.sub(r"^(?i:usage):", f"{BOLD_GREEN}Usage:{RESET}", usage_text)
-        usage_text = re.sub(r"\[([A-Z_]+)\]", rf"{BOLD_CYAN}[\1]{RESET}", usage_text)
-        usage_text = re.sub(r"\b([A-Z]{2,})\b", rf"{BOLD_CYAN}\1{RESET}", usage_text)
-        return usage_text
-
     def _error_handler(self, parser: argparse.ArgumentParser, message: str) -> NoReturn:
         """Print coloured error message."""
         usage_text = parser.format_usage().replace("usage:", "Usage:", 1)
         if self.colour:
-            print(self._color_usage(usage_text))
+            print(usage_text)
             print(f"{BOLD_RED}Error:{RESET} {BOLD}{message}{RESET}")
         else:
             print(f"{usage_text}\nError: {message}")

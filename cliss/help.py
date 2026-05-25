@@ -7,7 +7,7 @@ import re
 import sys
 from typing import TYPE_CHECKING, Dict, List, Optional, TextIO, TypedDict
 
-from color_kiss import BOLD_CYAN, BOLD_GREEN, DIM, WHITE
+from color_kiss import BOLD_CYAN, BOLD_GREEN, WHITE
 from color_kiss.utils import styled
 
 if TYPE_CHECKING:
@@ -27,11 +27,11 @@ class HelpTheme:
 
     def __init__(
         self,
-        usage: str = WHITE,
+        usage: str = BOLD_CYAN,
         header: str = BOLD_GREEN,
         option_string: str = BOLD_CYAN,
         metavar: str = BOLD_CYAN,
-        description: str = DIM,
+        description: str = WHITE,
     ):
         self.usage = usage
         self.header = header
@@ -78,20 +78,29 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         for i, line in enumerate(formatted.split("\n")):
             if i == 0 and line.startswith("Usage:"):
                 parts = line.split(":", 1)
+                if len(parts) > 1:
+                    lines.append(
+                        f"{self._help_theme.apply_header('Usage:')} {styled(parts[1].strip(), self._help_theme.usage)}"
+                    )
+                else:
+                    lines.append(self._help_theme.apply_header(line))
+            elif line.strip():
+                stripped = line.lstrip()
+                indent = len(line) - len(stripped)
                 lines.append(
-                    f"{self._help_theme.apply_header('Usage:')} {styled(parts[1].strip(), self._help_theme.usage)}"
+                    f"{' ' * indent}{styled(stripped, self._help_theme.usage)}"
                 )
-            elif i > 0 and line.strip():
-                lines.append(f"       {styled(line.strip(), self._help_theme.usage)}")
             else:
                 lines.append(line)
         return "\n".join(lines)
 
     def _format_action(self, action: argparse.Action) -> str:
         if isinstance(action, argparse._SubParsersAction):
-            return "\n".join(
-                self._format_action(sa).rstrip("\n") for sa in action._choices_actions
-            )  # type: ignore[attr-defined]
+            result = []
+            for choice_action in action._choices_actions:
+                choice_text = self._format_action(choice_action).rstrip("\n")
+                result.append(choice_text)
+            return "\n".join(result)
 
         if action.help is None:
             return super()._format_action(action)
@@ -105,6 +114,8 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         if not action.option_strings:
             default = self._get_default_metavar_for_positional(action)
             (metavar,) = self._metavar_formatter(action, default)(1)
+            if self._help_theme:
+                return styled(metavar, self._help_theme.option_string)
             return metavar
 
         if not self._help_theme:
@@ -121,7 +132,7 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
             return original
 
         def coloured_formatter(size: int) -> tuple[str, ...]:
-            return tuple(styled(m, theme.metavar) if m else m for m in original(size))
+            return original(size)
 
         return coloured_formatter
 
@@ -170,18 +181,23 @@ class Help:
         }
 
     def format_help(self, parser: argparse.ArgumentParser) -> str:
-        """Format help text for a parser."""
+        """Format help text for a parser with description on top."""
         formatter = self._create_formatter(parser)
+
+        if parser.description:
+            formatter.add_text(parser.description)
+            formatter.add_text("")
+
         formatter.add_usage(
             parser.usage, parser._actions, parser._mutually_exclusive_groups
         )
-        if parser.description:
-            formatter.add_text(parser.description)
+
         for group in parser._action_groups:
             formatter.start_section(group.title)
             formatter.add_text(group.description)
             formatter.add_arguments(group._group_actions)
             formatter.end_section()
+
         formatter.add_text(parser.epilog)
         return formatter.format_help()
 
@@ -192,19 +208,28 @@ class Help:
         custom = self._commands_help.get(command_name, {})
         custom_usage = custom.get("usage")
 
+        original_description = None
+        custom_help = custom.get("help")
+        if custom_help:
+            original_description = parser.description
+            parser.description = custom_help
+
         original_usage = None
         if custom_usage:
-            original_usage, parser.usage = parser.usage, custom_usage
+            original_usage = parser.usage
+            parser.usage = custom_usage
 
         help_text = self.format_help(parser)
 
         if original_usage is not None:
             parser.usage = original_usage
+        if original_description is not None:
+            parser.description = original_description
 
         examples = custom.get("examples")
         if examples:
             help_text += f"\n{self.theme.apply_header('EXAMPLES:')}\n"
-            help_text += "".join(f"  {styled(e, DIM)}\n" for e in examples)
+            help_text += "".join(f"  {styled(e, WHITE)}\n" for e in examples)
 
         return help_text
 
