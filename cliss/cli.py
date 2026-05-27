@@ -255,6 +255,9 @@ class CLI:
                 self.print_help()
                 return
             namespace_dict = vars(namespace)
+            if namespace._command is None:
+                self.print_help()
+                return
             command_parts = [namespace._command]
             command_parts.extend(
                 v for k, v in namespace_dict.items() if k.startswith("_group_") and v
