@@ -3,38 +3,41 @@
 from __future__ import annotations
 
 import inspect
-from types import UnionType
-from typing import Any, Union, get_args, get_origin
-
-_UNION_ORIGINS = frozenset({Union, UnionType})
-_NONE_TYPE = type(None)
-
-
-def _is_union(origin) -> bool:
-    """Check if origin is Union."""
-    return origin in _UNION_ORIGINS
+from typing import Any
 
 
 def get_type_from_annotation(annotation, default: Any = None) -> type:
     """Extract a usable type from a type annotation."""
-    if isinstance(annotation, str) or annotation is inspect.Parameter.empty:
+    if annotation is inspect.Parameter.empty:
         return type(default) if default is not inspect.Parameter.empty else str
 
-    origin = get_origin(annotation)
-    if origin is None or not _is_union(origin):
-        return annotation if isinstance(annotation, type) else str
+    if isinstance(annotation, str):
+        return type(default) if default is not inspect.Parameter.empty else str
 
-    non_none = [a for a in get_args(annotation) if a is not _NONE_TYPE]
-    return (
-        non_none[0]
-        if non_none
-        else (type(default) if default is not inspect.Parameter.empty else str)
-    )
+    if isinstance(annotation, type):
+        return annotation
+
+    origin = getattr(annotation, "__origin__", None)
+    if origin is not None:
+        import types
+        import typing
+
+        if origin is typing.Union or origin is types.UnionType:
+            args = getattr(annotation, "__args__", ())
+            none_type = type(None)
+            non_none = [a for a in args if a is not none_type]
+            if non_none:
+                return non_none[0] if isinstance(non_none[0], type) else str
+
+    return str
 
 
 def is_bool_type(param: inspect.Parameter) -> bool:
     """Check if a function parameter represents a boolean flag."""
     annotation = param.annotation
+
+    if annotation is inspect.Parameter.empty:
+        return isinstance(param.default, bool)
 
     if isinstance(annotation, str):
         return annotation in {
@@ -47,12 +50,15 @@ def is_bool_type(param: inspect.Parameter) -> bool:
     if annotation is bool:
         return True
 
-    if annotation is inspect.Parameter.empty:
-        return isinstance(param.default, bool)
+    origin = getattr(annotation, "__origin__", None)
+    if origin is not None:
+        import types
+        import typing
 
-    origin = get_origin(annotation)
-    if origin is not None and _is_union(origin):
-        non_none = [a for a in get_args(annotation) if a is not _NONE_TYPE]
-        return len(non_none) == 1 and non_none[0] is bool
+        if origin is typing.Union or origin is types.UnionType:
+            args = getattr(annotation, "__args__", ())
+            none_type = type(None)
+            non_none = [a for a in args if a is not none_type]
+            return len(non_none) == 1 and non_none[0] is bool
 
     return False
