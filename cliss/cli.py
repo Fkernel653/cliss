@@ -26,23 +26,34 @@ class CLI:
         self.name = name
         self.description = description
         self.version = version
-        self.colour = colour
+        self._colour = colour
+        self._parsed_colour = None
         self.usage = usage
         self._commands: Dict[str, dict] = {}
         self._help_system = None
-
         self.parser = argparse.ArgumentParser(
-            prog=name,
-            description=description,
-            add_help=False,
-            exit_on_error=False,
+            prog=name, description=description, add_help=False, exit_on_error=False
         )
-        self.parser.error = lambda msg: self._error_handler(self.parser, msg)  # type: ignore[assignment]
+        self.parser.error = lambda msg: self._error_handler(msg)  # type: ignore[assignment]
         self.subparsers = self.parser.add_subparsers(dest="_command", title="Commands")
         self.parser.usage = usage.format(self=self) if usage else None
-
         if version:
             self.parser.add_argument("--version", action="version", version=version)
+        colour_group = self.parser.add_mutually_exclusive_group()
+        colour_group.add_argument(
+            "--colour",
+            action="store_true",
+            default=None,
+            dest="use_colour",
+            help="Enable coloured output",
+        )
+        colour_group.add_argument(
+            "--no-colour",
+            action="store_false",
+            default=None,
+            dest="use_colour",
+            help="Disable coloured output",
+        )
         self.parser.add_argument(
             "-h",
             "--help",
@@ -52,7 +63,26 @@ class CLI:
         )
 
     @property
+    def colour(self) -> bool:
+        """Return whether coloured output is enabled.
+
+        Checks if colour was explicitly set via --colour/--no-colour CLI flags,
+        falling back to the default value passed to the constructor.
+        """
+        return self._parsed_colour if self._parsed_colour is not None else self._colour
+
+    @colour.setter
+    def colour(self, value: bool):
+        """Set the default colour mode."""
+        self._colour = value
+
+    @property
     def help_system(self):
+        """Return the Help instance, creating it lazily if needed.
+
+        On first access, imports Help and HelpFormatter, sets the parser's
+        formatter class, and instantiates the help system.
+        """
         if self._help_system is None:
             from .help import Help, HelpFormatter
 
@@ -62,21 +92,20 @@ class CLI:
 
     @help_system.setter
     def help_system(self, value):
+        """Replace the current help system instance."""
         self._help_system = value
 
     def _error_handler(self, message: str) -> NoReturn:
         """Print coloured error message."""
         help_suggestion = "See documentation or run --help"
-
         if self.colour:
-            from color_kiss import GRAY
-            from color_kiss.utils import error, styled
+            from color_kiss.utils import error, info
 
             print(error(message))
-            print(styled(help_suggestion, GRAY))
+            print(info(help_suggestion))
         else:
             print(f"Error: {message}")
-            print(help_suggestion)
+            print(f"Info: {help_suggestion}")
         sys.exit(2)
 
     def _make_error_handler(self, parser: argparse.ArgumentParser) -> None:
@@ -95,20 +124,15 @@ class CLI:
         group_sub = group_parser.add_subparsers(
             dest=f"_group_{name}", title="Subcommands"
         )
-
         sub_cli = CLI.__new__(CLI)
-        for attr in (
-            "name",
-            "description",
-            "colour",
-            "usage",
-            "_commands",
-            "_help_system",
-        ):
-            setattr(sub_cli, attr, getattr(self, attr))
         sub_cli.name = name
         sub_cli.description = description
         sub_cli.version = None
+        sub_cli._colour = self._colour
+        sub_cli._parsed_colour = self._parsed_colour
+        sub_cli.usage = self.usage
+        sub_cli._commands = self._commands
+        sub_cli._help_system = None
         sub_cli.parser = group_parser
         sub_cli.subparsers = group_sub
         return sub_cli
@@ -126,7 +150,6 @@ class CLI:
             cmd_name = name or func.__name__.replace("_", "-")
             cmd_help = description or (func.__doc__ or "").strip()
             is_async = inspect.iscoroutinefunction(func)
-
             parser = self.subparsers.add_parser(
                 cmd_name,
                 help=cmd_help.split("\n")[0] if cmd_help else None,
@@ -142,7 +165,6 @@ class CLI:
                 default=argparse.SUPPRESS,
                 help="Print help",
             )
-
             explicit_dests = set()
             if arguments:
                 for arg in arguments:
@@ -152,7 +174,6 @@ class CLI:
                         if k != "flags" and v is not None
                     }
                     explicit_dests.add(parser.add_argument(*arg.flags, **kw).dest)
-
             for param_name, param in inspect.signature(func).parameters.items():
                 if param_name in explicit_dests:
                     continue
@@ -173,7 +194,6 @@ class CLI:
                         default=param.default,
                         help=f"{param_name} (default: {param.default})",
                     )
-
             full_name = (
                 f"{self.name}:{cmd_name}"
                 if self.name and self.name != self.parser.prog
@@ -214,53 +234,46 @@ class CLI:
 
     def print_help(self, command_name: str | None = None) -> None:
         """Print help using the configured help system."""
-        if command_name:
-            command_info = self._commands.get(command_name)
-            self.help_system.print_help(
-                command_info["parser"] if command_info else self.parser, command_name
-            )
-        else:
-            self.help_system.print_help(self.parser)
+        command_info = self._commands.get(command_name) if command_name else None
+        self.help_system.print_help(
+            command_info["parser"] if command_info else self.parser, command_name
+        )
 
     def run(self, args: List[str] | None = None) -> None:
         """Parse command-line arguments and execute the appropriate command."""
         args = sys.argv[1:] if args is None else args
-
         if not args or any(arg in ("--help", "-h") for arg in args):
-            command_name = next((arg for arg in args if not arg.startswith("-")), None)
-            self.print_help(command_name)
+            self.print_help(
+                next((arg for arg in args if not arg.startswith("-")), None)
+            )
             return
-
         try:
             namespace = self.parser.parse_args(args)
+            if hasattr(namespace, "use_colour") and namespace.use_colour is not None:
+                self._parsed_colour = namespace.use_colour
             if getattr(namespace, "help", False):
                 self.print_help()
                 return
-
             namespace_dict = vars(namespace)
             command_parts = [namespace._command]
             command_parts.extend(
                 v for k, v in namespace_dict.items() if k.startswith("_group_") and v
             )
             full_command = ":".join(command_parts)
-
             command_info = self._commands.get(full_command)
             if command_info is None:
                 self.print_help()
                 return
-
             func_kwargs = {
                 k: v for k, v in namespace_dict.items() if not k.startswith("_")
             }
-
-            if command_info["is_async"]:
-                result = asyncio.run(command_info["func"](**func_kwargs))
-            else:
-                result = command_info["func"](**func_kwargs)
-
+            result = (
+                asyncio.run(command_info["func"](**func_kwargs))
+                if command_info["is_async"]
+                else command_info["func"](**func_kwargs)
+            )
             if result is not None:
                 print(str(result))
-
         except SystemExit as e:
             if e.code is not None and e.code != 0:
                 raise
