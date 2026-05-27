@@ -8,8 +8,6 @@ import inspect
 import sys
 from typing import Any, Callable, Dict, List, NoReturn, Optional
 
-from color_kiss import BOLD, BOLD_CYAN, BOLD_GREEN, BOLD_RED, RESET
-
 from .argument import Argument
 from .utils import get_type_from_annotation, is_bool_type
 
@@ -70,8 +68,10 @@ class CLI:
         """Print coloured error message."""
         usage_text = parser.format_usage().replace("usage:", "Usage:", 1)
         if self.colour:
+            from color_kiss.utils import error
+
             print(usage_text)
-            print(f"{BOLD_RED}Error:{RESET} {BOLD}{message}{RESET}")
+            print(error(message))
         else:
             print(f"{usage_text}\nError: {message}")
         sys.exit(2)
