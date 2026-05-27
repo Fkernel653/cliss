@@ -21,13 +21,10 @@ class CLI:
         description: str | None = None,
         version: str | None = None,
         usage: str = "{self.name} [COMMAND] [OPTIONS] ...\n",
-        colour: bool = True,
     ):
         self.name = name
         self.description = description
         self.version = version
-        self._colour = colour
-        self._parsed_colour = None
         self.usage = usage
         self._commands: Dict[str, dict] = {}
         self._help_system = None
@@ -39,21 +36,6 @@ class CLI:
         self.parser.usage = usage.format(self=self) if usage else None
         if version:
             self.parser.add_argument("--version", action="version", version=version)
-        colour_group = self.parser.add_mutually_exclusive_group()
-        colour_group.add_argument(
-            "--colour",
-            action="store_true",
-            default=None,
-            dest="use_colour",
-            help="Enable coloured output",
-        )
-        colour_group.add_argument(
-            "--no-colour",
-            action="store_false",
-            default=None,
-            dest="use_colour",
-            help="Disable coloured output",
-        )
         self.parser.add_argument(
             "-h",
             "--help",
@@ -61,20 +43,6 @@ class CLI:
             default=argparse.SUPPRESS,
             help="Print help",
         )
-
-    @property
-    def colour(self) -> bool:
-        """Return whether coloured output is enabled.
-
-        Checks if colour was explicitly set via --colour/--no-colour CLI flags,
-        falling back to the default value passed to the constructor.
-        """
-        return self._parsed_colour if self._parsed_colour is not None else self._colour
-
-    @colour.setter
-    def colour(self, value: bool):
-        """Set the default colour mode."""
-        self._colour = value
 
     @property
     def help_system(self):
@@ -97,15 +65,10 @@ class CLI:
 
     def _error_handler(self, message: str) -> NoReturn:
         """Print coloured error message."""
-        help_suggestion = "See documentation or run --help"
-        if self.colour:
-            from color_kiss.utils import error, info
+        from color_kiss.utils import error, info
 
-            print(error(message))
-            print(info(help_suggestion))
-        else:
-            print(f"Error: {message}")
-            print(f"Info: {help_suggestion}")
+        print(error(message))
+        print(info("See documentation or run --help"))
         sys.exit(2)
 
     def _make_error_handler(self, parser: argparse.ArgumentParser) -> None:
@@ -128,8 +91,6 @@ class CLI:
         sub_cli.name = name
         sub_cli.description = description
         sub_cli.version = None
-        sub_cli._colour = self._colour
-        sub_cli._parsed_colour = self._parsed_colour
         sub_cli.usage = self.usage
         sub_cli._commands = self._commands
         sub_cli._help_system = None
@@ -249,8 +210,6 @@ class CLI:
             return
         try:
             namespace = self.parser.parse_args(args)
-            if hasattr(namespace, "use_colour") and namespace.use_colour is not None:
-                self._parsed_colour = namespace.use_colour
             if getattr(namespace, "help", False):
                 self.print_help()
                 return
