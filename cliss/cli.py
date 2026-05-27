@@ -66,12 +66,17 @@ class CLI:
 
     def _error_handler(self, message: str) -> NoReturn:
         """Print coloured error message."""
+        help_suggestion = "See documentation or run --help"
+
         if self.colour:
-            from color_kiss.utils import error
+            from color_kiss import GRAY
+            from color_kiss.utils import error, styled
 
             print(error(message))
+            print(styled(help_suggestion, GRAY))
         else:
-            print(f"\nError: {message}")
+            print(f"Error: {message}")
+            print(help_suggestion)
         sys.exit(2)
 
     def _make_error_handler(self, parser: argparse.ArgumentParser) -> None:
