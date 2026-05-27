@@ -65,7 +65,6 @@ CLI(name="myapp", description="...", version="1.0.0", colour=True)
 | `name` | `Optional[str]` | `None` | Program name in help |
 | `description` | `Optional[str]` | `None` | Description in help |
 | `version` | `Optional[str]` | `None` | Adds `--version` flag |
-| `colour` | `bool` | `True` | Coloured output via [color-kiss](https://github.com/Fkernel653/color-kiss) |
 | `usage` | `Optional[str]` | `"{self.name} [COMMAND] [OPTIONS] ...\n"` | Custom usage string |
 
 ### Colours with `color-kiss`
