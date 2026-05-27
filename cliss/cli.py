@@ -6,7 +6,7 @@ import argparse
 import asyncio
 import inspect
 import sys
-from typing import Any, Callable, Dict, List, NoReturn, Optional
+from typing import Any, Callable, Dict, List, NoReturn
 
 from .argument import Argument
 from .utils import get_type_from_annotation, is_bool_type
@@ -17,10 +17,10 @@ class CLI:
 
     def __init__(
         self,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        version: Optional[str] = None,
-        usage: Optional[str] = "{self.name} [COMMAND] [OPTIONS] ...\n",
+        name: str | None = None,
+        description: str | None = None,
+        version: str | None = None,
+        usage: str = "{self.name} [COMMAND] [OPTIONS] ...\n",
         colour: bool = True,
     ):
         self.name = name
@@ -64,27 +64,25 @@ class CLI:
     def help_system(self, value):
         self._help_system = value
 
-    def _error_handler(self, parser: argparse.ArgumentParser, message: str) -> NoReturn:
+    def _error_handler(self, message: str) -> NoReturn:
         """Print coloured error message."""
-        usage_text = parser.format_usage().replace("usage:", "Usage:", 1)
         if self.colour:
             from color_kiss.utils import error
 
-            print(usage_text)
             print(error(message))
         else:
-            print(f"{usage_text}\nError: {message}")
+            print(f"\nError: {message}")
         sys.exit(2)
 
     def _make_error_handler(self, parser: argparse.ArgumentParser) -> None:
         """Set error handler for a parser."""
-        parser.error = lambda msg: self._error_handler(parser, msg)  # type: ignore[assignment]
+        parser.error = lambda msg: self._error_handler(msg)  # type: ignore[assignment]
 
     def add_global_argument(self, *flags: str, **kwargs: Any) -> None:
         """Add a global argument that applies to all commands."""
         self.parser.add_argument(*flags, **kwargs)
 
-    def group(self, name: str, description: Optional[str] = None, **kwargs: Any) -> CLI:
+    def group(self, name: str, description: str | None = None, **kwargs: Any) -> CLI:
         """Create a command group."""
         group_parser = self.subparsers.add_parser(
             name, help=description or f"{name} commands", **kwargs
@@ -112,9 +110,9 @@ class CLI:
 
     def command(
         self,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        arguments: Optional[List[Argument]] = None,
+        name: str | None = None,
+        description: str | None = None,
+        arguments: List[Argument] | None = None,
         **parser_kwargs: Any,
     ) -> Callable:
         """Decorator for creating a command."""
@@ -209,7 +207,7 @@ class CLI:
             help=f"Disable {param_name}",
         )
 
-    def print_help(self, command_name: Optional[str] = None) -> None:
+    def print_help(self, command_name: str | None = None) -> None:
         """Print help using the configured help system."""
         if command_name:
             command_info = self._commands.get(command_name)
@@ -219,7 +217,7 @@ class CLI:
         else:
             self.help_system.print_help(self.parser)
 
-    def run(self, args: Optional[List[str]] = None) -> None:
+    def run(self, args: List[str] | None = None) -> None:
         """Parse command-line arguments and execute the appropriate command."""
         args = sys.argv[1:] if args is None else args
 
