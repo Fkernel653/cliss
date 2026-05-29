@@ -58,7 +58,7 @@ $ python todo.py add "Test" --no-done
 
 ### `CLI` class
 ```python
-CLI(name="myapp", description="...", version="1.0.0", colour=True)
+CLI(name="myapp", description="...", version="1.0.0")
 ```
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
