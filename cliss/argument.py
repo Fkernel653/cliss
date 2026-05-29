@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, List
 
 
 class Argument:
@@ -15,8 +15,8 @@ class Argument:
         default: Any = None,
         help: str = "",
         required: bool = False,
-        choices: Optional[List[Any]] = None,
-        action: Optional[str] = None,
+        choices: List[Any] | None = None,
+        action: str | None = None,
     ):
         """
         Initialize a command argument descriptor.
