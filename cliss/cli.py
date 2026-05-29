@@ -8,6 +8,8 @@ import inspect
 import sys
 from typing import Any, Callable, Dict, List, NoReturn
 
+from color_kiss.utils import error, info
+
 from .argument import Argument
 from .utils import get_type_from_annotation, is_bool_type
 
@@ -20,7 +22,7 @@ class CLI:
         name: str | None = None,
         description: str | None = None,
         version: str | None = None,
-        usage: str = "{self.name} [COMMAND] [OPTIONS] ...\n",
+        usage: str = "{self.name} [COMMAND] [ARGS...] [OPTIONS]\n",
     ):
         self.name = name
         self.description = description
@@ -65,8 +67,6 @@ class CLI:
 
     def _error_handler(self, message: str) -> NoReturn:
         """Print coloured error message."""
-        from color_kiss.utils import error, info
-
         print(error(message))
         print(info("See documentation or run --help"))
         sys.exit(2)
@@ -200,6 +200,19 @@ class CLI:
             command_info["parser"] if command_info else self.parser, command_name
         )
 
+    def _get_all_valid_flags(self) -> set:
+        """Get all valid flags from all parsers."""
+        valid_flags = set()
+
+        for action in self.parser._actions:
+            valid_flags.update(action.option_strings)
+
+        for cmd_info in self._commands.values():
+            for action in cmd_info["parser"]._actions:
+                valid_flags.update(action.option_strings)
+
+        return valid_flags
+
     def run(self, args: List[str] | None = None) -> None:
         """Parse command-line arguments and execute the appropriate command."""
         args = sys.argv[1:] if args is None else args
@@ -209,6 +222,20 @@ class CLI:
             )
             return
         try:
+            unknown_flags = [
+                arg
+                for arg in args
+                if arg.startswith("-")
+                and not any(
+                    arg.startswith(flag) for flag in self._get_all_valid_flags()
+                )
+            ]
+            if unknown_flags:
+                for flag in unknown_flags:
+                    print(error(f"Unknown option: {flag}"))
+                print(info("See documentation or run --help"))
+                sys.exit(2)
+
             namespace = self.parser.parse_args(args)
             if getattr(namespace, "help", False):
                 self.print_help()

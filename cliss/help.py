@@ -54,10 +54,10 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         prog: str,
         indent_increment: int = 2,
         max_help_position: int = 22,
-        width: Optional[int] = None,
+        width: int | None = None,
     ):
         super().__init__(prog, indent_increment, max_help_position, width)
-        self._help_theme: Optional[HelpTheme] = None
+        self._help_theme: HelpTheme | None = None
 
     def set_theme(self, theme: HelpTheme) -> None:
         """Set the colour theme."""
@@ -69,8 +69,37 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         return len(HelpFormatter._ANSI_RE.sub("", text))
 
     def _format_usage(self, usage, actions, groups, prefix):
+        """Format usage line with positional arguments before optional [OPTIONS] block.
+
+        Builds usage as: prog <positional...> [OPTIONS]
+        Positional arguments are wrapped in angle brackets, optional arguments are
+        collapsed into a single styled [OPTIONS] placeholder.
+        """
         prefix = prefix or "Usage: "
-        formatted = super()._format_usage(usage, actions, groups, prefix)
+
+        positional_actions = [a for a in actions if not a.option_strings]
+        optional_actions = [a for a in actions if a.option_strings]
+
+        if usage is None:
+            parts = [self._prog]
+
+            for action in positional_actions:
+                invocation = self._format_action_invocation(action)
+                parts.append(f"<{invocation}>")
+
+            if optional_actions:
+                theme = self._help_theme
+                options_text = "[OPTIONS]"
+                parts.append(
+                    styled(options_text, theme.option_string) if theme else options_text
+                )
+
+            usage = " ".join(parts)
+
+        formatted = super()._format_usage(
+            usage, positional_actions + optional_actions, groups, prefix
+        )
+
         if not self._help_theme:
             return formatted
 
@@ -95,6 +124,12 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         return "\n".join(lines)
 
     def _format_action(self, action: argparse.Action) -> str:
+        """Format a single action with styled invocation and aligned help text.
+
+        Handles sub-parser actions recursively. For regular actions, applies
+        theme colour to the invocation (option flags or positional metavar)
+        and left-aligns the help text at max_help_position.
+        """
         if isinstance(action, argparse._SubParsersAction):
             result = []
             for choice_action in action._choices_actions:
@@ -106,16 +141,26 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
             return super()._format_action(action)
 
         invocation = self._format_action_invocation(action)
-        indent = min(self._visible_len(invocation), self._max_help_position)
+        theme = self._help_theme
+
+        styled_invocation = (
+            styled(invocation, theme.option_string) if theme else invocation
+        )
+
+        indent = min(self._visible_len(styled_invocation), self._max_help_position)
         help_text = self._expand_help(action)
-        return f"  {invocation}{' ' * (self._max_help_position - indent)}{help_text}\n"
+        return f"  {styled_invocation}{' ' * (self._max_help_position - indent)}{help_text}\n"
 
     def _format_action_invocation(self, action: argparse.Action) -> str:
+        """Return the invocation string for an action.
+
+        For positional arguments, returns the metavar (e.g. 'query').
+        For optional arguments, returns comma-separated option strings,
+        styled with the theme colour when available (e.g. '--limit, -l').
+        """
         if not action.option_strings:
             default = self._get_default_metavar_for_positional(action)
             (metavar,) = self._metavar_formatter(action, default)(1)
-            if self._help_theme:
-                return styled(metavar, self._help_theme.option_string)
             return metavar
 
         if not self._help_theme:
@@ -126,6 +171,11 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         )
 
     def _metavar_formatter(self, action: argparse.Action, default_metavar: str):
+        """Return a callable that formats metavar strings for the given action.
+
+        Currently returns the original formatter unchanged — theme colouring
+        of metavar placeholders is handled elsewhere (_format_action_invocation).
+        """
         original = super()._metavar_formatter(action, default_metavar)
         theme = self._help_theme
         if not theme:
@@ -137,6 +187,11 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         return coloured_formatter
 
     def start_section(self, heading: Optional[str]) -> None:
+        """Start a new help section with an optionally styled heading.
+
+        Applies the theme's header style (capitalized) when a heading and theme
+        are both present.
+        """
         if heading and self._help_theme:
             heading = self._help_theme.apply_header(heading.capitalize())
         super().start_section(heading)
