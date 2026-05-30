@@ -22,7 +22,7 @@ class CLI:
         name: str | None = None,
         description: str | None = None,
         version: str | None = None,
-        usage: str = "{self.name} [COMMAND] [ARGS...] [OPTIONS]\n",
+        usage: str = "{self.name} [COMMAND] [OPTIONS] [ARGS]...\n",
     ):
         self.name = name
         self.description = description
