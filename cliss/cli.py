@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import inspect
 import sys
 from typing import Any, Callable, Dict, List, NoReturn
@@ -256,11 +255,12 @@ class CLI:
             func_kwargs = {
                 k: v for k, v in namespace_dict.items() if not k.startswith("_")
             }
-            result = (
-                asyncio.run(command_info["func"](**func_kwargs))
-                if command_info["is_async"]
-                else command_info["func"](**func_kwargs)
-            )
+            if command_info["is_async"]:
+                import asyncio
+
+                result = asyncio.run(command_info["func"](**func_kwargs))
+            else:
+                result = command_info["func"](**func_kwargs)
             if result is not None:
                 print(str(result))
         except SystemExit as e:
