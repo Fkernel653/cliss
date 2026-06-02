@@ -23,9 +23,7 @@ Write type-annotated Python functions, get a full CLI — automatic `--help`, va
 
 ### Installation
 ```bash
-pip install cliss        # pip
-uv pip install cliss     # uv
-pipx install cliss       # pipx
+pip install cliss
 ```
 
 ### Usage
@@ -62,10 +60,10 @@ CLI(name="myapp", description="...", version="1.0.0")
 ```
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `name` | `Optional[str]` | `None` | Program name in help |
-| `description` | `Optional[str]` | `None` | Description in help |
-| `version` | `Optional[str]` | `None` | Adds `--version` flag |
-| `usage` | `Optional[str]` | `"{self.name} [COMMAND] [OPTIONS] ...\n"` | Custom usage string |
+| `name` | `str` | `None` | Program name in help |
+| `description` | `str` | `None` | Description in help |
+| `version` | `str` | `None` | Adds `--version` flag |
+| `usage` | `str` | `"{self.name} [COMMAND] [OPTIONS] [ARGS]...\n"` | Custom usage string |
 
 ### Colours with `color-kiss`
 cliss uses [color-kiss](https://pypi.org/project/color-kiss/) — an ultra-lightweight ANSI color library — for readable, fast, and dependency-free terminal styling. No bloat, just colors.
@@ -96,7 +94,7 @@ Argument("--output", "-o", type=str, default=None, help="...", choices=["json","
 | `name: str` | Positional `name` |
 | `count: int = 1` | `--count` (default: 1) |
 | `verbose: bool = False` | `--verbose`/`--no-verbose` |
-| `mode: Optional[str] = None` | `--mode` (default: None) |
+| `mode: str = None` | `--mode` (default: None) |
 
 ## 📖 Examples
 
@@ -158,10 +156,10 @@ async def fetch(url: str, retries: int = 3):
 |------|------|-------|
 | **cliss** | 0 + [color-kiss](https://pypi.org/project/color-kiss/) (lightweight) | Decorators + type hints |
 | Fire | 2 ([termcolor](https://pypi.org/project/termcolor/), [colorama](https://pypi.org/project/colorama/))  | Introspection |
-| Click | Click | Decorators |
-| Typer | Click + typing-extensions | Type hints |
+| Click | 0 | Decorators |
+| Typer (0.26.0+) | 0 | Type hints |
 
-cliss = Fire's zero-bloat philosophy + Typer's type-driven design. ~200 lines, pure stdlib, with [color-kiss](https://github.com/Fkernel653/color-kiss) for pretty output.
+cliss = Fire's zero-bloat philosophy + Typer's type-driven design. ~300 lines, pure stdlib, with [color-kiss](https://github.com/Fkernel653/color-kiss) for pretty output.
 
 ### Bool flags?
 Automatic `--name`/`--no-name` mutually exclusive group. `store_true` by default, `store_false` if default is `True`.
