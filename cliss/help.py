@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import argparse
 import re
-import sys
-from typing import TYPE_CHECKING, Dict, List, TextIO, TypedDict
+from typing import TYPE_CHECKING, Dict, List, TypedDict
 
 from color_kiss import BOLD_CYAN, BOLD_GREEN, WHITE
 from color_kiss.utils import styled
+
+from .utils import echo
 
 if TYPE_CHECKING:
     from .cli import CLI
@@ -249,7 +250,6 @@ class Help:
         self,
         parser: argparse.ArgumentParser | None = None,
         command_name: str | None = None,
-        file: TextIO | None = None,
     ) -> None:
         """Print help text to the specified output."""
         parser = parser or self.cli.parser
@@ -258,7 +258,7 @@ class Help:
             if command_name
             else self.format_help(parser)
         )
-        (file or sys.stdout).write(help_text)
+        echo(help_text)
 
     def get_command_list(self) -> List[str]:
         """Get a list of all registered commands."""

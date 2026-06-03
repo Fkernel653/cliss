@@ -5,10 +5,10 @@ from __future__ import annotations
 import argparse
 import inspect
 import sys
-from typing import Any, Callable, Dict, List, NoReturn
+from typing import Any, Callable, Dict, List, NoReturn, TextIO
 
 from .argument import Argument
-from .utils import get_type_from_annotation, is_bool_type
+from .utils import echo, get_type_from_annotation, is_bool_type
 
 
 class CLI:
@@ -63,12 +63,12 @@ class CLI:
     def help_system(self, value):
         self._help_system = value
 
-    def _error_handler(self, message: str) -> NoReturn:
+    def _error_handler(self, message: str, file: TextIO = sys.stderr) -> NoReturn:
         """Print coloured error message and exit."""
         from color_kiss.utils import error, info
 
-        print(error(message))
-        print(info("See documentation or run --help"))
+        echo(error(message), file=file)
+        echo(info("See documentation or run --help"), file=file)
         sys.exit(2)
 
     def add_global_argument(self, *flags: str, **kwargs: Any) -> None:
@@ -233,8 +233,8 @@ class CLI:
                 from color_kiss.utils import error, info
 
                 for flag in unknown_flags:
-                    print(error(f"Unknown option: {flag}"))
-                print(info("See documentation or run --help"))
+                    echo(error(f"Unknown option: {flag}"), file=sys.stderr)
+                echo(info("See documentation or run --help"), file=sys.stderr)
                 sys.exit(2)
 
             namespace = self.parser.parse_args(args)
@@ -264,7 +264,7 @@ class CLI:
                 result = command_info["func"](**func_kwargs)
 
             if result is not None:
-                print(str(result))
+                echo(str(result))
         except SystemExit as e:
             if e.code and e.code != 0:
                 raise

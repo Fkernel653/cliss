@@ -3,7 +3,19 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any
+import sys
+from typing import Any, TextIO
+
+
+def echo(text: Any, file: TextIO = sys.stdout) -> None:
+    """Print message to file.
+
+    :param text: message to print
+    :param file: file to print(default: stdout)
+    :return: None
+    """
+    file.write(f"{text}\n")
+    file.flush()
 
 
 def get_type_from_annotation(annotation, default: Any = None) -> type:
