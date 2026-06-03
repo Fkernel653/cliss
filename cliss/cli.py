@@ -7,8 +7,6 @@ import inspect
 import sys
 from typing import Any, Callable, Dict, List, NoReturn
 
-from color_kiss.utils import error, info
-
 from .argument import Argument
 from .utils import get_type_from_annotation, is_bool_type
 
@@ -32,11 +30,17 @@ class CLI:
         self.parser = argparse.ArgumentParser(
             prog=name, description=description, add_help=False, exit_on_error=False
         )
-        self.parser.error = lambda msg: self._error_handler(msg)  # type: ignore[assignment]
+        self.parser.error = self._error_handler  # type: ignore[assignment]
         self.subparsers = self.parser.add_subparsers(dest="_command", title="Commands")
         self.parser.usage = usage.format(self=self) if usage else None
         if version:
-            self.parser.add_argument("--version", action="version", version=version)
+            self.parser.add_argument(
+                "-V",
+                "--version",
+                action="version",
+                version=version,
+                help="Print version info and exit",
+            )
         self.parser.add_argument(
             "-h",
             "--help",
@@ -47,11 +51,7 @@ class CLI:
 
     @property
     def help_system(self):
-        """Return the Help instance, creating it lazily if needed.
-
-        On first access, imports Help and HelpFormatter, sets the parser's
-        formatter class, and instantiates the help system.
-        """
+        """Return the Help instance, creating it lazily if needed."""
         if self._help_system is None:
             from .help import Help, HelpFormatter
 
@@ -61,18 +61,15 @@ class CLI:
 
     @help_system.setter
     def help_system(self, value):
-        """Replace the current help system instance."""
         self._help_system = value
 
     def _error_handler(self, message: str) -> NoReturn:
-        """Print coloured error message."""
+        """Print coloured error message and exit."""
+        from color_kiss.utils import error, info
+
         print(error(message))
         print(info("See documentation or run --help"))
         sys.exit(2)
-
-    def _make_error_handler(self, parser: argparse.ArgumentParser) -> None:
-        """Set error handler for a parser."""
-        parser.error = lambda msg: self._error_handler(msg)  # type: ignore[assignment]
 
     def add_global_argument(self, *flags: str, **kwargs: Any) -> None:
         """Add a global argument that applies to all commands."""
@@ -87,14 +84,16 @@ class CLI:
             dest=f"_group_{name}", title="Subcommands"
         )
         sub_cli = CLI.__new__(CLI)
-        sub_cli.name = name
-        sub_cli.description = description
-        sub_cli.version = None
-        sub_cli.usage = self.usage
-        sub_cli._commands = self._commands
-        sub_cli._help_system = None
-        sub_cli.parser = group_parser
-        sub_cli.subparsers = group_sub
+        sub_cli.__dict__.update(
+            name=name,
+            description=description,
+            version=None,
+            usage=self.usage,
+            _commands=self._commands,
+            _help_system=None,
+            parser=group_parser,
+            subparsers=group_sub,
+        )
         return sub_cli
 
     def command(
@@ -109,7 +108,6 @@ class CLI:
         def decorator(func: Callable) -> Callable:
             cmd_name = name or func.__name__.replace("_", "-")
             cmd_help = description or (func.__doc__ or "").strip()
-            is_async = inspect.iscoroutinefunction(func)
             parser = self.subparsers.add_parser(
                 cmd_name,
                 help=cmd_help.split("\n")[0] if cmd_help else None,
@@ -117,7 +115,7 @@ class CLI:
                 add_help=False,
                 **parser_kwargs,
             )
-            self._make_error_handler(parser)
+            parser.error = self._error_handler  # type: ignore[assignment]
             parser.add_argument(
                 "-h",
                 "--help",
@@ -125,6 +123,7 @@ class CLI:
                 default=argparse.SUPPRESS,
                 help="Print help",
             )
+
             explicit_dests = set()
             if arguments:
                 for arg in arguments:
@@ -134,7 +133,9 @@ class CLI:
                         if k != "flags" and v is not None
                     }
                     explicit_dests.add(parser.add_argument(*arg.flags, **kw).dest)
-            for param_name, param in inspect.signature(func).parameters.items():
+
+            sig = inspect.signature(func)
+            for param_name, param in sig.parameters.items():
                 if param_name in explicit_dests:
                     continue
                 has_default = param.default is not inspect.Parameter.empty
@@ -154,6 +155,7 @@ class CLI:
                         default=param.default,
                         help=f"{param_name} (default: {param.default})",
                     )
+
             full_name = (
                 f"{self.name}:{cmd_name}"
                 if self.name and self.name != self.parser.prog
@@ -162,7 +164,7 @@ class CLI:
             self._commands[full_name] = {
                 "func": func,
                 "parser": parser,
-                "is_async": is_async,
+                "is_async": inspect.iscoroutinefunction(func),
             }
             return func
 
@@ -202,14 +204,11 @@ class CLI:
     def _get_all_valid_flags(self) -> set:
         """Get all valid flags from all parsers."""
         valid_flags = set()
-
         for action in self.parser._actions:
             valid_flags.update(action.option_strings)
-
         for cmd_info in self._commands.values():
             for action in cmd_info["parser"]._actions:
                 valid_flags.update(action.option_strings)
-
         return valid_flags
 
     def run(self, args: List[str] | None = None) -> None:
@@ -220,6 +219,7 @@ class CLI:
                 next((arg for arg in args if not arg.startswith("-")), None)
             )
             return
+
         try:
             unknown_flags = [
                 arg
@@ -230,28 +230,29 @@ class CLI:
                 )
             ]
             if unknown_flags:
+                from color_kiss.utils import error, info
+
                 for flag in unknown_flags:
                     print(error(f"Unknown option: {flag}"))
                 print(info("See documentation or run --help"))
                 sys.exit(2)
 
             namespace = self.parser.parse_args(args)
-            if getattr(namespace, "help", False):
+            if getattr(namespace, "help", False) or namespace._command is None:
                 self.print_help()
                 return
+
             namespace_dict = vars(namespace)
-            if namespace._command is None:
-                self.print_help()
-                return
             command_parts = [namespace._command]
             command_parts.extend(
                 v for k, v in namespace_dict.items() if k.startswith("_group_") and v
             )
-            full_command = ":".join(command_parts)
-            command_info = self._commands.get(full_command)
+
+            command_info = self._commands.get(":".join(command_parts))
             if command_info is None:
                 self.print_help()
                 return
+
             func_kwargs = {
                 k: v for k, v in namespace_dict.items() if not k.startswith("_")
             }
@@ -261,8 +262,9 @@ class CLI:
                 result = asyncio.run(command_info["func"](**func_kwargs))
             else:
                 result = command_info["func"](**func_kwargs)
+
             if result is not None:
                 print(str(result))
         except SystemExit as e:
-            if e.code is not None and e.code != 0:
+            if e.code and e.code != 0:
                 raise
