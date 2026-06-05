@@ -14,7 +14,7 @@ def echo(text: Any, file: TextIO = sys.stdout) -> None:
     :param file: file to print(default: stdout)
     :return: None
     """
-    file.write(f"{text}\n")
+    file.write(text + "\n")
     file.flush()
 
 
