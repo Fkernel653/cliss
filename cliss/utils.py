@@ -15,7 +15,6 @@ def echo(text: Any, file: TextIO = sys.stdout) -> None:
     :return: None
     """
     file.write(text + "\n")
-    file.flush()
 
 
 def get_type_from_annotation(annotation, default: Any = None) -> type:
