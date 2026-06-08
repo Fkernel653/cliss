@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import re
+from functools import lru_cache
 from typing import TYPE_CHECKING, Dict, List, TypedDict
 
 from .colors import BOLD_CYAN, BOLD_GREEN, WHITE, styled
@@ -23,6 +24,8 @@ class CommandHelpInfo(TypedDict, total=False):
 
 class HelpTheme:
     """Theme configuration for help output in Cargo style."""
+
+    __slots__ = ("usage", "header", "option_string", "metavar", "description")
 
     def __init__(
         self,
@@ -48,6 +51,8 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
 
     _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 
+    __slots__ = ("_help_theme", "_visible_len_cache")
+
     def __init__(
         self,
         prog: str,
@@ -62,14 +67,19 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
         """Set the colour theme."""
         self._help_theme = theme
 
-    @staticmethod
-    def _visible_len(text: str) -> int:
-        """Return visible length of string without ANSI codes."""
-        return len(HelpFormatter._ANSI_RE.sub("", text))
+    @lru_cache(1024)
+    def _visible_len_cached(self, text: str) -> int:
+        """Cached version of visible length calculation."""
+        if "\033[" not in text:
+            return len(text)
+        return len(self._ANSI_RE.sub("", text))
+
+    def _visible_len(self, text: str) -> int:
+        """Return visible length of string without ANSI codes (with caching)."""
+        return self._visible_len_cached(text)
 
     def _format_usage(self, usage, actions, groups, prefix):
         """Format usage line with positional arguments before optional [OPTIONS] block."""
-        prefix = prefix or "Usage: "
         positional_actions = [a for a in actions if not a.option_strings]
         optional_actions = [a for a in actions if a.option_strings]
 
@@ -92,7 +102,7 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
 
         lines = []
         for i, line in enumerate(formatted.split("\n")):
-            if i == 0 and line.startswith("Usage:"):
+            if i == 0 and line.startswith("usage:"):
                 parts = line.split(":", 1)
                 if len(parts) > 1:
                     lines.append(
@@ -141,17 +151,6 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
             styled(opt, self._help_theme.option_string) for opt in action.option_strings
         )
 
-    def _metavar_formatter(self, action: argparse.Action, default_metavar: str):
-        """Return a callable that formats metavar strings for the given action."""
-        original = super()._metavar_formatter(action, default_metavar)
-        if not self._help_theme:
-            return original
-
-        def coloured_formatter(size: int) -> tuple[str, ...]:
-            return original(size)
-
-        return coloured_formatter
-
     def start_section(self, heading: str | None) -> None:
         """Start a new help section with an optionally styled heading."""
         if heading and self._help_theme:
@@ -161,6 +160,8 @@ class HelpFormatter(argparse.RawDescriptionHelpFormatter):
 
 class Help:
     """Help system for CLI — manages help text generation and display."""
+
+    __slots__ = ("cli", "theme", "max_help_position", "width", "_commands_help")
 
     def __init__(
         self,
