@@ -31,7 +31,7 @@ def error(text: str) -> str:
     Returns:
         str: Formatted error message.
     """
-    return BOLD_RED + "Error: " + text + RESET
+    return BOLD_RED + "Error: " + RESET + text
 
 
 def info(text: str) -> str:
@@ -45,4 +45,4 @@ def info(text: str) -> str:
     Returns:
         str: Formatted info message.
     """
-    return BOLD_CYAN + "Info: " + text + RESET
+    return BOLD_CYAN + "Info: " + RESET + text
