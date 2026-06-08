@@ -8,6 +8,7 @@ import sys
 from typing import Any, Callable, Dict, List, NoReturn, TextIO
 
 from .argument import Argument
+from .colors import error, info
 from .utils import echo, get_type_from_annotation, is_bool_type
 
 
@@ -65,8 +66,6 @@ class CLI:
 
     def _error_handler(self, message: str, file: TextIO = sys.stderr) -> NoReturn:
         """Print coloured error message and exit."""
-        from color_kiss.utils import error, info
-
         echo(error(message), file=file)
         echo(info("See documentation or run --help"), file=file)
         sys.exit(2)
@@ -230,8 +229,6 @@ class CLI:
                 )
             ]
             if unknown_flags:
-                from color_kiss.utils import error, info
-
                 for flag in unknown_flags:
                     echo(error(f"Unknown option: {flag}"), file=sys.stderr)
                 echo(info("See documentation or run --help"), file=sys.stderr)

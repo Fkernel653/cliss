@@ -6,8 +6,8 @@ import argparse
 import re
 from typing import TYPE_CHECKING, Dict, List, TypedDict
 
-from color_kiss import BOLD_CYAN, BOLD_GREEN, WHITE
-from color_kiss.utils import styled
+from .colors import BOLD_CYAN, BOLD_GREEN, WHITE, styled
+from .utils import echo
 
 if TYPE_CHECKING:
     from .cli import CLI
@@ -250,8 +250,6 @@ class Help:
         command_name: str | None = None,
     ) -> None:
         """Print help text to the specified output."""
-        from .utils import echo
-
         parser = parser or self.cli.parser
         help_text = (
             self.format_command_help(command_name, parser)
