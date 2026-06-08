@@ -6,9 +6,6 @@ requires-python = ">=3.10"
 name = "cliss"
 version = "0.7.8"
 source = { editable = "." }
-dependencies = [
-    { name = "color-kiss" },
-]
 
 [package.optional-dependencies]
 dev = [
@@ -16,20 +13,8 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "color-kiss" },
-    { name = "ruff", marker = "extra == 'dev'" },
-]
+requires-dist = [{ name = "ruff", marker = "extra == 'dev'" }]
 provides-extras = ["dev"]
-
-[[package]]
-name = "color-kiss"
-version = "0.3.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6f/5e/8972b55d8198a6f924c11017cc0612766aaccf585e1eeeb9b5f8b5bcab2f/color_kiss-0.3.2.tar.gz", hash = "sha256:57656a3dfb241736d291e270defd4446a0156b9cad532501f3534eac9826923b", size = 7367, upload-time = "2026-06-07T07:32:19.484Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9d/66/5e76342dc4a914112bb313e7cbe1280f58d4cc8a36f4b58f18d70ce844cb/color_kiss-0.3.2-py3-none-any.whl", hash = "sha256:e3da362dea75c01868617d9f0e5978b472ff2f3ab2fd73eb9c83ed0a3a3d4bfd", size = 8084, upload-time = "2026-06-07T07:32:20.399Z" },
-]
 
 [[package]]
 name = "ruff"

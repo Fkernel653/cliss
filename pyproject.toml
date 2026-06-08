@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cliss"
-version = "0.7.8"
+version = "0.8.0"
 description = "A lightweight framework for building CLI applications on top of argparse"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -27,9 +27,7 @@ classifiers = [
     "Topic :: Terminals",
     "Topic :: Utilities",
 ]
-dependencies = [
-    "color-kiss",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = ["ruff"]

@@ -15,7 +15,7 @@ Write type-annotated Python functions, get a full CLI — automatic `--help`, va
 - **Flexible** — Declarative `Argument` objects, type inference, or both
 - **Async-Native** — `async def` handlers with automatic event loop management
 - **Global Args** — Define flags shared across all commands
-- **Coloured Help** — Beautiful terminal output via [color-kiss](https://pypi.org/project/color-kiss/), an ultra-lightweight library for readability and development speed
+- **Coloured Help** — Beautiful terminal output via ANSI-codes
 - **Bool Flags** — Automatic `--name`/`--no-name` mutually exclusive group
 - **argparse Access** — Full access to underlying parsers for advanced use
 
@@ -64,13 +64,6 @@ CLI(name="myapp", description="...", version="1.0.0")
 | `description` | `str` | `None` | Description in help |
 | `version` | `str` | `None` | Adds `--version` flag |
 | `usage` | `str` | `"{self.name} [COMMAND] [OPTIONS] [ARGS]...\n"` | Custom usage string |
-
-### Colours with `color-kiss`
-cliss uses [color-kiss](https://pypi.org/project/color-kiss/) — an ultra-lightweight ANSI color library — for readable, fast, and dependency-free terminal styling. No bloat, just colors.
-```python
-from color_kiss import BOLD_GREEN, BOLD_RED, RESET
-print(f"{BOLD_GREEN}Success!{RESET}")
-```
 
 ### `Argument` class
 ```python
@@ -154,12 +147,12 @@ async def fetch(url: str, retries: int = 3):
 ### Why cliss over argparse/Click/Typer/Fire?
 | Tool | Deps | Style |
 |------|------|-------|
-| **cliss** | 0 + [color-kiss](https://pypi.org/project/color-kiss/) (lightweight) | Decorators + type hints |
-| Fire | 2 ([termcolor](https://pypi.org/project/termcolor/), [colorama](https://pypi.org/project/colorama/))  | Introspection |
+| **cliss** | 0 | Decorators + type hints |
+| Fire | 1 ([termcolor](https://pypi.org/project/termcolor/))  | Introspection |
 | Click | 0 | Decorators |
 | Typer (0.26.0+) | 0 | Type hints |
 
-cliss = Fire's zero-bloat philosophy + Typer's type-driven design. ~300 lines, pure stdlib, with [color-kiss](https://github.com/Fkernel653/color-kiss) for pretty output.
+cliss = Fire's zero-bloat philosophy + Typer's type-driven design. ~300 lines, pure stdlib, ANSI-codes for pretty output.
 
 ### Bool flags?
 Automatic `--name`/`--no-name` mutually exclusive group. `store_true` by default, `store_false` if default is `True`.
