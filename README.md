@@ -1,4 +1,4 @@
-# cliss — A lightweight framework for building CLI applications on top of argparse
+# cliss — A lightweight framework for building CLI applications
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![PyPI](https://img.shields.io/pypi/v/cliss.svg)](https://pypi.org/project/cliss/)
@@ -6,18 +6,18 @@
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey)]()
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-261230?logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
 
-Write type-annotated Python functions, get a full CLI — automatic `--help`, validation, and async support.
+Write type-annotated Python functions, get a full CLI — automatic `--help`, validation, async support, and zero dependencies.
 
 ## ✨ Features
 
-- **Zero Dependencies** — Pure stdlib: `argparse`, `asyncio`, `inspect`
+- **Zero Dependencies** — Pure stdlib: `sys`, `asyncio`, `inspect`
 - **Type-Driven** — Automatic arguments from function signatures and type hints
 - **Flexible** — Declarative `Argument` objects, type inference, or both
 - **Async-Native** — `async def` handlers with automatic event loop management
 - **Global Args** — Define flags shared across all commands
 - **Coloured Help** — Beautiful terminal output via ANSI-codes
 - **Bool Flags** — Automatic `--name`/`--no-name` mutually exclusive group
-- **argparse Access** — Full access to underlying parsers for advanced use
+- **Manual Parsing** — Pure `sys.argv` parsing, no `argparse` dependency
 
 ## 🚀 Quick Start
 
@@ -145,14 +145,17 @@ async def fetch(url: str, retries: int = 3):
 ## ❓ FAQ
 
 ### Why cliss over argparse/Click/Typer/Fire?
-| Tool | Deps | Style |
-|------|------|-------|
-| **cliss** | 0 | Decorators + type hints |
-| Fire | 1 ([termcolor](https://pypi.org/project/termcolor/))  | Introspection |
-| Click | 0 | Decorators |
-| Typer (0.26.0+) | 0 | Type hints |
+| Tool | Deps | Style | Parser |
+|------|------|-------|--------|
+| **cliss** | 0 | Decorators + type hints | `sys.argv` |
+| Fire | 1 ([termcolor](https://pypi.org/project/termcolor/)) | Introspection | Custom |
+| Click | 0 | Decorators | Custom |
+| Typer (0.26.0+) | 0 | Type hints | `click` |
 
-cliss = Fire's zero-bloat philosophy + Typer's type-driven design. ~300 lines, pure stdlib, ANSI-codes for pretty output.
+cliss = Fire's zero-bloat philosophy + Typer's type-driven design. Pure `sys.argv` parsing, custom help formatter with ANSI-colours.
+
+### Why sys.argv instead of argparse?
+Manual `sys.argv` parsing gives complete control over argument handling, removes dependency on `argparse` internals, and keeps the codebase minimal. The custom parser handles flags, positional arguments, bool pairs, and type coercion directly.
 
 ### Bool flags?
 Automatic `--name`/`--no-name` mutually exclusive group. `store_true` by default, `store_false` if default is `True`.
@@ -160,8 +163,8 @@ Automatic `--name`/`--no-name` mutually exclusive group. `store_true` by default
 ### Async?
 `async def` handlers auto-run with `asyncio.run()`. Sync functions returning coroutines also work.
 
-### argparse access?
-`cli.parser` and `cli.subparsers` are standard argparse objects. Mutually exclusive groups, custom actions, parent parsers — all available.
+### Help customisation?
+Full Cargo-style coloured help with `HelpTheme` configuration. Custom usage strings, examples sections, and per-command help registration via `Help.register_command_help()`.
 
 ## 📄 License
 
