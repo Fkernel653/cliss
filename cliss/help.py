@@ -1,25 +1,16 @@
-"""Help system for CLI — extended argparse help formatting."""
+"""Help system for CLI"""
 
 from __future__ import annotations
 
-import argparse
 import re
+import shutil
 from functools import lru_cache
-from typing import TYPE_CHECKING, Dict, List, TypedDict
+from typing import TYPE_CHECKING, Dict, List
 
 from .colors import BOLD_CYAN, BOLD_GREEN, WHITE, styled
-from .utils import echo
 
 if TYPE_CHECKING:
-    from .cli import CLI
-
-
-class CommandHelpInfo(TypedDict, total=False):
-    """TypedDict to store information about the command's help."""
-
-    help: str | None
-    usage: str | None
-    examples: List[str]
+    from .cli import CLI, ArgumentDef
 
 
 class HelpTheme:
@@ -46,140 +37,287 @@ class HelpTheme:
         return styled(text, self.header)
 
 
-class HelpFormatter(argparse.RawDescriptionHelpFormatter):
-    """Extended help formatter with Cargo-style colour support."""
+class HelpFormatter:
+    """Standalone help formatter"""
 
     _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
-
-    __slots__ = ("_help_theme", "_visible_len_cache")
 
     def __init__(
         self,
         prog: str,
         indent_increment: int = 2,
-        max_help_position: int = 22,
+        max_help_position: int = 27,
         width: int | None = None,
     ):
-        super().__init__(prog, indent_increment, max_help_position, width)
-        self._help_theme: HelpTheme | None = None
+        self.prog = prog
+        self.indent_increment = indent_increment
+        self.max_help_position = max_help_position
+        self.width = width or shutil.get_terminal_size().columns
+        self._theme: HelpTheme | None = None
 
     def set_theme(self, theme: HelpTheme) -> None:
-        """Set the colour theme."""
-        self._help_theme = theme
+        self._theme = theme
 
+    @staticmethod
     @lru_cache(1024)
-    def _visible_len_cached(self, text: str) -> int:
-        """Cached version of visible length calculation."""
+    def _visible_len(text: str) -> int:
+        """Return visible length of string without ANSI codes."""
         if "\033[" not in text:
             return len(text)
-        return len(self._ANSI_RE.sub("", text))
+        return len(HelpFormatter._ANSI_RE.sub("", text))
 
-    def _visible_len(self, text: str) -> int:
-        """Return visible length of string without ANSI codes (with caching)."""
-        return self._visible_len_cached(text)
-
-    def _format_usage(self, usage, actions, groups, prefix):
-        """Format usage line with positional arguments before optional [OPTIONS] block."""
-        positional_actions = [a for a in actions if not a.option_strings]
-        optional_actions = [a for a in actions if a.option_strings]
-
-        if usage is None:
-            parts = [self._prog]
-            for action in positional_actions:
-                parts.append(f"<{self._format_action_invocation(action)}>")
-            if optional_actions:
-                theme = self._help_theme
-                parts.append(
-                    styled("[OPTIONS]", theme.option_string) if theme else "[OPTIONS]"
-                )
-            usage = " ".join(parts)
-
-        formatted = super()._format_usage(
-            usage, positional_actions + optional_actions, groups, prefix
-        )
-        if not self._help_theme:
-            return formatted
-
+    def _wrap_text(self, text: str, indent: int = 0) -> List[str]:
+        """Wrap text to terminal width with indent."""
+        prefix = " " * indent
+        max_width = self.width - indent
+        words = text.split()
         lines = []
-        for i, line in enumerate(formatted.split("\n")):
-            if i == 0 and line.startswith("usage:"):
-                parts = line.split(":", 1)
-                if len(parts) > 1:
-                    lines.append(
-                        f"{self._help_theme.apply_header('Usage:')} {styled(parts[1].strip(), self._help_theme.usage)}"
-                    )
-                else:
-                    lines.append(self._help_theme.apply_header(line))
-            elif line.strip():
-                stripped = line.lstrip()
-                indent = len(line) - len(stripped)
-                lines.append(
-                    f"{' ' * indent}{styled(stripped, self._help_theme.usage)}"
-                )
+        current_line = ""
+
+        for word in words:
+            test_line = f"{current_line} {word}".strip() if current_line else word
+            if self._visible_len(test_line) <= max_width:
+                current_line = test_line
             else:
-                lines.append(line)
+                if current_line:
+                    lines.append(prefix + current_line)
+                current_line = word
+
+        if current_line:
+            lines.append(prefix + current_line)
+
+        return lines or [prefix]
+
+    def format_help(
+        self,
+        description: str | None,
+        usage: str,
+        global_args: List["ArgumentDef"],
+        commands: Dict[str, str],
+        command_args: List["ArgumentDef"] | None = None,
+    ) -> str:
+        """Format complete help text."""
+        theme = self._theme
+        lines = []
+
+        # Description
+        if description:
+            if theme:
+                lines.append(styled(description, theme.description))
+            else:
+                lines.append(description)
+            lines.append("")
+
+        # Usage
+        if theme:
+            lines.append(f"{theme.apply_header('Usage:')} {styled(usage, theme.usage)}")
+        else:
+            lines.append(f"Usage: {usage}")
+        lines.append("")
+
+        # Global options
+        if global_args:
+            if theme:
+                lines.append(theme.apply_header("Options:"))
+            else:
+                lines.append("Options:")
+            lines.extend(self._format_arguments(global_args))
+            lines.append("")
+
+        # Commands
+        if commands:
+            if theme:
+                lines.append(theme.apply_header("Commands:"))
+            else:
+                lines.append("Commands:")
+            lines.extend(self._format_commands(commands))
+            lines.append("")
+
+        # Command-specific arguments
+        if command_args:
+            if theme:
+                lines.append(theme.apply_header("Arguments:"))
+            else:
+                lines.append("Arguments:")
+            lines.extend(self._format_arguments(command_args))
+
         return "\n".join(lines)
 
-    def _format_action(self, action: argparse.Action) -> str:
-        """Format a single action with styled invocation and aligned help text."""
-        if isinstance(action, argparse._SubParsersAction):
-            return "\n".join(
-                self._format_action(a).rstrip("\n") for a in action._choices_actions
-            )
+    def format_command_help(
+        self,
+        command_name: str,
+        description: str | None,
+        args: List["ArgumentDef"],
+    ) -> str:
+        """Format help for a specific command."""
+        theme = self._theme
+        lines = []
 
-        if action.help is None:
-            return super()._format_action(action)
+        # Description
+        if description:
+            if theme:
+                lines.append(styled(description, theme.description))
+            else:
+                lines.append(description)
+            lines.append("")
 
-        invocation = self._format_action_invocation(action)
-        theme = self._help_theme
-        styled_invocation = (
-            styled(invocation, theme.option_string) if theme else invocation
-        )
-        indent = min(self._visible_len(styled_invocation), self._max_help_position)
-        help_text = self._expand_help(action)
-        return f"  {styled_invocation}{' ' * (self._max_help_position - indent)}{help_text}\n"
+        # Usage
+        usage = self._build_command_usage(command_name, args)
+        if theme:
+            lines.append(f"{theme.apply_header('Usage:')} {styled(usage, theme.usage)}")
+        else:
+            lines.append(f"Usage: {usage}")
+        lines.append("")
 
-    def _format_action_invocation(self, action: argparse.Action) -> str:
-        """Return the invocation string for an action."""
-        if not action.option_strings:
-            default = self._get_default_metavar_for_positional(action)
-            (metavar,) = self._metavar_formatter(action, default)(1)
-            return metavar
-        if not self._help_theme:
-            return ", ".join(action.option_strings)
-        return ", ".join(
-            styled(opt, self._help_theme.option_string) for opt in action.option_strings
-        )
+        # Arguments
+        if args:
+            if theme:
+                lines.append(theme.apply_header("Arguments:"))
+            else:
+                lines.append("Arguments:")
+            lines.extend(self._format_arguments(args))
 
-    def start_section(self, heading: str | None) -> None:
-        """Start a new help section with an optionally styled heading."""
-        if heading and self._help_theme:
-            heading = self._help_theme.apply_header(heading.capitalize())
-        super().start_section(heading)
+        return "\n".join(lines)
+
+    def _format_arguments(self, args: List["ArgumentDef"]) -> List[str]:
+        """Format a list of argument definitions."""
+        theme = self._theme
+        lines = []
+        indent = "  "
+
+        for arg in args:
+            # Build invocation string
+            flags = ", ".join(arg.flags)
+
+            if arg.required or not arg.flags[0].startswith("-"):
+                # Positional
+                invocation = f"<{arg.name}>"
+            else:
+                invocation = flags
+
+            if theme:
+                styled_invocation = styled(invocation, theme.option_string)
+            else:
+                styled_invocation = invocation
+
+            # Calculate padding
+            inv_visible_len = self._visible_len(styled_invocation)
+            padding = max(2, self.max_help_position - inv_visible_len)
+
+            # Help text
+            help_parts = []
+            if arg.help:
+                help_parts.append(arg.help)
+
+            help_text = " ".join(help_parts)
+
+            # Wrap help text if needed
+            if help_text:
+                wrapped = self._wrap_text(
+                    help_text,
+                    indent=self.max_help_position + 2,
+                )
+                if wrapped:
+                    lines.append(
+                        f"{indent}{styled_invocation}{' ' * padding}{wrapped[0].strip()}"
+                    )
+                    for line in wrapped[1:]:
+                        lines.append(line)
+                else:
+                    lines.append(f"{indent}{styled_invocation}")
+            else:
+                lines.append(f"{indent}{styled_invocation}")
+
+        return lines
+
+    def _format_commands(self, commands: Dict[str, str]) -> List[str]:
+        """Format list of commands."""
+        theme = self._theme
+        lines = []
+        indent = "  "
+
+        for cmd_name, cmd_desc in sorted(commands.items()):
+            # Display only the short name, not full group:command
+            display_name = cmd_name.split(":")[-1]
+
+            if theme:
+                styled_name = styled(display_name, theme.option_string)
+            else:
+                styled_name = display_name
+
+            name_visible_len = self._visible_len(styled_name)
+            padding = max(2, self.max_help_position - name_visible_len)
+
+            if cmd_desc:
+                # Use first line of description
+                short_desc = cmd_desc.split("\n")[0]
+                wrapped = self._wrap_text(
+                    short_desc,
+                    indent=self.max_help_position + 2,
+                )
+                if wrapped:
+                    lines.append(
+                        f"{indent}{styled_name}{' ' * padding}{wrapped[0].strip()}"
+                    )
+                    for line in wrapped[1:]:
+                        lines.append(line)
+                else:
+                    lines.append(f"{indent}{styled_name}")
+            else:
+                lines.append(f"{indent}{styled_name}")
+
+        return lines
+
+    def _build_command_usage(self, command_name: str, args: List["ArgumentDef"]) -> str:
+        """Build usage string for a command."""
+        parts = [self.prog, command_name]
+
+        for arg in args:
+            if arg.required:
+                parts.append(f"<{arg.name}>")
+            else:
+                if arg.flags and arg.flags[0].startswith("-"):
+                    flag = arg.flags[0]
+                    parts.append(f"[{flag}]")
+                else:
+                    parts.append(f"[<{arg.name}>]")
+
+        return " ".join(parts)
 
 
 class Help:
     """Help system for CLI — manages help text generation and display."""
 
-    __slots__ = ("cli", "theme", "max_help_position", "width", "_commands_help")
+    __slots__ = (
+        "cli",
+        "usage",
+        "theme",
+        "max_help_position",
+        "width",
+        "_commands_help",
+    )
 
     def __init__(
         self,
         cli: "CLI",
+        usage: str,
         theme: HelpTheme | None = None,
-        max_help_position: int = 22,
+        max_help_position: int = 27,
         width: int | None = None,
     ):
         self.cli = cli
+        self.usage = usage
         self.theme = theme or HelpTheme()
         self.max_help_position = max_help_position
         self.width = width
-        self._commands_help: Dict[str, CommandHelpInfo] = {}
+        self._commands_help: Dict[str, dict] = {}
 
-    def _create_formatter(self, parser: argparse.ArgumentParser) -> HelpFormatter:
+    def _create_formatter(self) -> HelpFormatter:
         """Create and configure a help formatter."""
         formatter = HelpFormatter(
-            parser.prog, max_help_position=self.max_help_position, width=self.width
+            self.cli.name or "cli",
+            max_help_position=self.max_help_position,
+            width=self.width,
         )
         formatter.set_theme(self.theme)
         return formatter
@@ -198,66 +336,62 @@ class Help:
             "examples": examples or [],
         }
 
-    def format_help(self, parser: argparse.ArgumentParser) -> str:
-        """Format help text for a parser with description on top."""
-        formatter = self._create_formatter(parser)
-        if parser.description:
-            formatter.add_text(parser.description)
-            formatter.add_text("")
-        formatter.add_usage(
-            parser.usage, parser._actions, parser._mutually_exclusive_groups
+    def format_help(
+        self,
+        description: str | None,
+        global_args: List["ArgumentDef"],
+        commands: Dict[str, str],
+    ) -> str:
+        """Format main help text."""
+        formatter = self._create_formatter()
+
+        return formatter.format_help(
+            description=description,
+            usage=self.usage,
+            global_args=global_args,
+            commands=commands,
         )
-        for group in parser._action_groups:
-            formatter.start_section(group.title)
-            formatter.add_text(group.description)
-            formatter.add_arguments(group._group_actions)
-            formatter.end_section()
-        formatter.add_text(parser.epilog)
-        return formatter.format_help()
 
     def format_command_help(
-        self, command_name: str, parser: argparse.ArgumentParser
+        self,
+        command_name: str,
+        description: str | None,
+        args: List["ArgumentDef"],
     ) -> str:
         """Format help text for a specific command."""
         custom = self._commands_help.get(command_name, {})
+        custom_help = custom.get("help", description)
         custom_usage = custom.get("usage")
-        custom_help = custom.get("help")
 
-        original_description = parser.description if custom_help else None
-        if custom_help:
-            parser.description = custom_help
+        formatter = self._create_formatter()
 
-        original_usage = parser.usage if custom_usage else None
+        help_text = formatter.format_command_help(
+            command_name=command_name,
+            description=custom_help,
+            args=args,
+        )
+
+        # Override usage if custom
         if custom_usage:
-            parser.usage = custom_usage
+            theme = self.theme
+            usage_line = (
+                f"{theme.apply_header('Usage:')} {styled(custom_usage, theme.usage)}"
+            )
+            # Replace the usage line
+            lines = help_text.split("\n")
+            for i, line in enumerate(lines):
+                if line.startswith("Usage:" if not theme else ""):
+                    lines[i] = usage_line
+                    break
+            help_text = "\n".join(lines)
 
-        help_text = self.format_help(parser)
-
-        if original_usage is not None:
-            parser.usage = original_usage
-        if original_description is not None:
-            parser.description = original_description
-
+        # Add examples
         examples = custom.get("examples")
         if examples:
             help_text += f"\n{self.theme.apply_header('EXAMPLES:')}\n"
             help_text += "".join(f"  {styled(e, WHITE)}\n" for e in examples)
 
         return help_text
-
-    def print_help(
-        self,
-        parser: argparse.ArgumentParser | None = None,
-        command_name: str | None = None,
-    ) -> None:
-        """Print help text to the specified output."""
-        parser = parser or self.cli.parser
-        help_text = (
-            self.format_command_help(command_name, parser)
-            if command_name
-            else self.format_help(parser)
-        )
-        echo(help_text)
 
     def get_command_list(self) -> List[str]:
         """Get a list of all registered commands."""
