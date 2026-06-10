@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import inspect
 import sys
-import typing
-from typing import Any, TextIO
+from typing import Any, TextIO, get_args, get_origin
 
 
 def echo(text: Any, file: TextIO = sys.stdout) -> None:
@@ -29,9 +28,9 @@ def get_type_from_annotation(annotation, default: Any = None) -> type:
     if isinstance(annotation, type):
         return annotation
 
-    origin = typing.get_origin(annotation)
+    origin = get_origin(annotation)
     if origin is not None:
-        args = typing.get_args(annotation)
+        args = get_args(annotation)
         none_type = type(None)
         non_none = [a for a in args if a is not none_type]
         if non_none:
@@ -58,9 +57,9 @@ def is_bool_type(param: inspect.Parameter) -> bool:
     if annotation is bool:
         return True
 
-    origin = typing.get_origin(annotation)
+    origin = get_origin(annotation)
     if origin is not None:
-        args = typing.get_args(annotation)
+        args = get_args(annotation)
         none_type = type(None)
         non_none = [a for a in args if a is not none_type]
         return len(non_none) == 1 and non_none[0] is bool
