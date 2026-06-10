@@ -43,7 +43,7 @@ class CLI:
     def __init__(
         self,
         name: str | None = None,
-        usage: str = "{self.name} [COMMAND] [OPTIONS] [ARGS]...\n",
+        usage: str = "{self.name} [COMMAND] [OPTIONS] [ARGS]...",
         description: str | None = None,
         version: str | None = None,
     ):
