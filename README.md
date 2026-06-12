@@ -15,7 +15,7 @@ Write type-annotated Python functions, get a full CLI — automatic `--help`, va
 - **Flexible** — Declarative `Argument` objects, type inference, or both
 - **Async-Native** — `async def` handlers with automatic event loop management
 - **Global Args** — Define flags shared across all commands
-- **Coloured Help** — Beautiful terminal output via ANSI-codes
+- **Coloured Help** — Beautiful terminal output via ANSI-codes (can be disabled)
 - **Bool Flags** — Automatic `--name`/`--no-name` mutually exclusive group
 - **Manual Parsing** — Pure `sys.argv` parsing, no `argparse` dependency
 
@@ -52,18 +52,33 @@ $ python todo.py add "Test" --no-done
 [○] Test (priority: 1)
 ```
 
+### Disable Colours
+```python
+# No colours in output
+cli = CLI(name="myapp", colour=False)
+
+# Or via environment variable
+$ NO_COLOR=1 python myapp.py --help
+```
+
 ## 📋 API Reference
 
 ### `CLI` class
 ```python
-CLI(name="myapp", description="...", version="1.0.0")
+CLI(
+    name="cli",
+    description=None,
+    version=None,
+    colour=True,
+)
 ```
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `name` | `str` | `None` | Program name in help |
 | `description` | `str` | `None` | Description in help |
 | `version` | `str` | `None` | Adds `--version` flag |
-| `usage` | `str` | `"{self.name} [COMMAND] [OPTIONS] [ARGS]...\n"` | Custom usage string |
+| `usage` | `str` | `"{self.name} [COMMAND] [OPTIONS] [ARGS]..."` | Custom usage string |
+| `colour` | `bool` | `True` | Enable/disable ANSI colours in output |
 
 ### `Argument` class
 ```python
@@ -161,10 +176,10 @@ Manual `sys.argv` parsing gives complete control over argument handling, removes
 Automatic `--name`/`--no-name` mutually exclusive group. `store_true` by default, `store_false` if default is `True`.
 
 ### Async?
-`async def` handlers auto-run with `asyncio.run()`. Sync functions returning coroutines also work.
+`async def` handlers auto-run with `asyncio.run()`. Sync functions returning coroutines also work. Disable with `simple=True` for pure sync scripts.
 
 ### Help customisation?
-Full Cargo-style coloured help with `HelpTheme` configuration. Custom usage strings, examples sections, and per-command help registration via `Help.register_command_help()`.
+Full Cargo-style coloured help with `HelpTheme` configuration. Custom usage strings, examples sections, and per-command help registration via `Help.register_command_help()`. Disable colours with `colour=False` or `NO_COLOR` environment variable.
 
 ## 📄 License
 
