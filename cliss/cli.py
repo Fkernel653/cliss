@@ -258,7 +258,6 @@ class CLI:
             self.print_help()
             return
 
-        # Поиск команды
         cmd_info = None
         cmd_args = []
 
@@ -318,7 +317,7 @@ class CLI:
         missing = [name for name in positional_params if name not in func_kwargs]
         if missing:
             self._error_handler(
-                f"missing {len(missing)} required positional argument: {missing[0]!r}"
+                f"Missing {len(missing)} required positional argument: {missing[0]!r}"
             )
 
         try:
