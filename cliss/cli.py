@@ -44,16 +44,16 @@ class CLI:
         self,
         name: str = "cli",
         usage: str = "{self.name} [COMMAND] [OPTIONS] [ARGS]...",
-        colour: bool = True,
+        color: bool = True,
         description: str | None = None,
         version: str | None = None,
     ):
         self.name = name
-        self.colour = colour
+        self.color = color
         self.description = description
         self.version = version
         self._commands: Dict[str, dict] = {}
-        self._help_system = Help(self, usage=usage.format(self=self), colour=colour)
+        self._help_system = Help(self, usage=usage.format(self=self), color=color)
         self._global_args: List[ArgumentDef] = []
         self._group_name: str | None = None
         self._parent_commands: Dict[str, dict] | None = None
@@ -78,7 +78,7 @@ class CLI:
         )
 
     def _error_handler(self, message: str, file: TextIO = sys.stderr) -> NoReturn:
-        if self.colour:
+        if self.color:
             echo(error(message), file=file)
             echo(info(INFO_MESSAGE), file=file)
         else:
@@ -95,7 +95,7 @@ class CLI:
             name=name,
             description=description,
             version=None,
-            colour=self.colour,
+            color=self.color,
             _commands={},
             _help_system=self._help_system,
             _global_args=[],
@@ -292,12 +292,12 @@ class CLI:
             for flag in unknown_flags:
                 echo(
                     error(f"Unknown option: {flag}")
-                    if self.colour
+                    if self.color
                     else f"{ERROR_PREFIX}Unknown option: {flag}",
                     file=sys.stderr,
                 )
             echo(
-                info(INFO_MESSAGE) if self.colour else f"{INFO_PREFIX}{INFO_MESSAGE}",
+                info(INFO_MESSAGE) if self.color else f"{INFO_PREFIX}{INFO_MESSAGE}",
                 file=sys.stderr,
             )
             sys.exit(2)

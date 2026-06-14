@@ -1,4 +1,4 @@
-# cliss — A lightweight framework for building CLI applications
+# cliss — Lightweight framework for building CLI applications
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![PyPI](https://img.shields.io/pypi/v/cliss.svg)](https://pypi.org/project/cliss/)
@@ -8,25 +8,10 @@
 
 Write type-annotated Python functions, get a full CLI — automatic `--help`, validation, async support, and zero dependencies.
 
-## ✨ Features
-
-- **Zero Dependencies** — Pure stdlib: `sys`, `asyncio`, `inspect`
-- **Type-Driven** — Automatic arguments from function signatures and type hints
-- **Flexible** — Declarative `Argument` objects, type inference, or both
-- **Async-Native** — `async def` handlers with automatic event loop management
-- **Global Args** — Define flags shared across all commands
-- **Coloured Help** — Beautiful terminal output via ANSI-codes (can be disabled)
-- **Bool Flags** — Automatic `--name`/`--no-name` mutually exclusive group
-- **Manual Parsing** — Pure `sys.argv` parsing, no `argparse` dependency
-
 ## 🚀 Quick Start
-
-### Installation
 ```bash
-pip install cliss
+pip install cliss                    # Python 3.10+
 ```
-
-### Usage
 ```python
 from cliss import CLI
 
@@ -41,152 +26,87 @@ def add(task: str, priority: int = 1, done: bool = False):
 cli.run()
 ```
 
-```bash
-$ python todo.py add "Buy milk" --priority 2
-[○] Buy milk (priority: 2)
+## 📋 Commands & Features
 
-$ python todo.py add "Call mom" --done
-[✓] Call mom (priority: 1)
-
-$ python todo.py add "Test" --no-done
-[○] Test (priority: 1)
-```
-
-### Disable Colours
+### `@cli.command()` — Define commands from functions
 ```python
-# No colours in output
-cli = CLI(name="myapp", colour=False)
-
-# Or via environment variable
-$ NO_COLOR=1 python myapp.py --help
+@cli.command()
+def fetch(url: str, retries: int = 3):
+    """Download from URL with retries"""
+    return f"Fetched {url} (retries: {retries})"
 ```
 
-## 📋 API Reference
+### Type → CLI mapping
 
-### `CLI` class
-```python
-CLI(
-    name="cli",
-    description=None,
-    version=None,
-    colour=True,
-)
-```
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `name` | `str` | `None` | Program name in help |
-| `description` | `str` | `None` | Description in help |
-| `version` | `str` | `None` | Adds `--version` flag |
-| `usage` | `str` | `"{self.name} [COMMAND] [OPTIONS] [ARGS]..."` | Custom usage string |
-| `colour` | `bool` | `True` | Enable/disable ANSI colours in output |
-
-### `Argument` class
-```python
-from cliss import Argument
-
-Argument("--output", "-o", type=str, default=None, help="...", choices=["json","csv"], action="store_true")
-```
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `*flags` | `str` | — | Argument flags |
-| `type` | `type` | `str` | Value type |
-| `default` | `Any` | `None` | Default value |
-| `help` | `str` | `""` | Help text |
-| `required` | `bool` | `False` | Make required |
-| `choices` | `list` | `None` | Allowed values |
-| `action` | `str` | `None` | argparse action |
-
-### Type → CLI Mapping
-| Function Signature | CLI Argument |
-|--------------------|--------------|
+| Function signature | CLI argument |
+|--------------------|---------------|
 | `name: str` | Positional `name` |
 | `count: int = 1` | `--count` (default: 1) |
-| `verbose: bool = False` | `--verbose`/`--no-verbose` |
+| `verbose: bool = False` | `--verbose` / `--no-verbose` |
 | `mode: str = None` | `--mode` (default: None) |
 
-## 📖 Examples
-
-### CRUD Application
+### Command groups
 ```python
-from cliss import CLI
-
-cli = CLI(name="db")
-db = {}
-
-@cli.command()
-def set(key: str, value: str):
-    db[key] = value
-    return f"OK: {key} = {value}"
-
-@cli.command()
-def get(key: str):
-    return db.get(key, "Not found")
-
-@cli.command()
-def delete(key: str, force: bool = False):
-    if force or key in db:
-        db.pop(key, None)
-        return f"Deleted: {key}"
-    return f"Not found (use --force)"
-
-cli.run()
-```
-
-### Command Groups
-```python
-cli = CLI(name="git")
-
 remote = cli.group("remote", "Manage remotes")
-stash = cli.group("stash", "Stash changes")
 
 @remote.command()
 def add(name: str, url: str):
     return f"Added remote {name}"
-
-@stash.command()
-def push(message: str = ""):
-    return f"Stashed: {message or 'WIP'}"
-
-cli.run()
 ```
 
-### Async Commands
+### Async support
 ```python
 @cli.command()
 async def fetch(url: str, retries: int = 3):
     return f"Fetched {url} (retries: {retries})"
 ```
 
-## ❓ FAQ
+### Manual argument declaration
+```python
+from cliss import Argument
 
-### Why cliss over argparse/Click/Typer/Fire?
-| Tool | Deps | Style | Parser |
-|------|------|-------|--------|
-| **cliss** | 0 | Decorators + type hints | `sys.argv` |
-| Fire | 1 ([termcolor](https://pypi.org/project/termcolor/)) | Introspection | Custom |
-| Click | 0 | Decorators | Custom |
-| Typer (0.26.0+) | 0 | Type hints | `click` |
+@cli.command()
+def convert(
+    input: str,
+    output: str,
+    format: Argument("--format", "-f", choices=["json", "csv"], default="json")
+):
+    return f"Converted {input} → {output}.{format}"
+```
 
-cliss = Fire's zero-bloat philosophy + Typer's type-driven design. Pure `sys.argv` parsing, custom help formatter with ANSI-colours.
+## 🎨 CLI Configuration
 
-### Why sys.argv instead of argparse?
-Manual `sys.argv` parsing gives complete control over argument handling, removes dependency on `argparse` internals, and keeps the codebase minimal. The custom parser handles flags, positional arguments, bool pairs, and type coercion directly.
+```python
+cli = CLI(
+    name="myapp",                      # Program name in help
+    description="Does amazing things", # Description in help
+    version="2.0.0",                   # Adds --version flag
+    color=False,                       # Disable ANSI colours
+)
+```
 
-### Bool flags?
-Automatic `--name`/`--no-name` mutually exclusive group. `store_true` by default, `store_false` if default is `True`.
+| Option | Description |
+|--------|-------------|
+| `name` | Program name in help |
+| `description` | Description in help |
+| `version` | Adds `--version` flag |
+| `usage` | Custom usage string |
+| `color` | Enable/disable ANSI colours (default: True) |
 
-### Async?
-`async def` handlers auto-run with `asyncio.run()`. Sync functions returning coroutines also work. Disable with `simple=True` for pure sync scripts.
+### Disable colours via environment
+```bash
+NO_COLOR=1 python myapp.py --help
+```
 
-### Help customisation?
-Full Cargo-style coloured help with `HelpTheme` configuration. Custom usage strings, examples sections, and per-command help registration via `Help.register_command_help()`. Disable colours with `colour=False` or `NO_COLOR` environment variable.
+## 📄 License & Acknowledgments
 
-## 📄 License
+MIT License — Built with pure Python standard library:
 
-MIT — see [LICENSE](LICENSE) file.
-
----
+| Module | Purpose |
+|--------|---------|
+| `sys` | Argument parsing |
+| `asyncio` | Async command execution |
+| `inspect` | Signature introspection |
 
 **Author:** [Fkernel653](https://github.com/Fkernel653)
-**Repository:** [github.com/Fkernel653/cliss](https://github.com/Fkernel653/cliss)
-**PyPI:** [pypi.org/project/cliss](https://pypi.org/project/cliss/)
+**Project:** [GitHub](https://github.com/Fkernel653/cliss) • [PyPI](https://pypi.org/project/cliss/)

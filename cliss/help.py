@@ -21,7 +21,7 @@ class HelpTheme:
         "option_string",
         "metavar",
         "description",
-        "_colour",
+        "_color",
     )
 
     def __init__(
@@ -31,25 +31,25 @@ class HelpTheme:
         option_string: str = BOLD_CYAN,
         metavar: str = BOLD_CYAN,
         description: str = WHITE,
-        colour: bool = True,
+        color: bool = True,
     ):
         self.usage = usage
         self.header = header
         self.option_string = option_string
         self.metavar = metavar
         self.description = description
-        self._colour = colour
+        self._color = color
 
     @property
-    def colour(self) -> bool:
-        return self._colour
+    def color(self) -> bool:
+        return self._color
 
-    @colour.setter
-    def colour(self, value: bool) -> None:
-        self._colour = value
+    @color.setter
+    def color(self, value: bool) -> None:
+        self._color = value
 
     def apply_style(self, text: str, style: str) -> str:
-        return styled(text, style) if self._colour else text
+        return styled(text, style) if self._color else text
 
     def apply_header(self, text: str) -> str:
         return self.apply_style(text, self.header)
@@ -76,28 +76,28 @@ class HelpFormatter:
         indent_increment: int = 2,
         max_help_position: int = 27,
         width: int | None = None,
-        colour: bool = True,
+        color: bool = True,
     ):
         self.prog = prog
         self.indent_increment = indent_increment
         self.max_help_position = max_help_position
         self.width = width or shutil.get_terminal_size().columns
         self._theme: HelpTheme | None = None
-        self._colour = colour
+        self._color = color
 
     @property
-    def colour(self) -> bool:
-        return self._colour
+    def color(self) -> bool:
+        return self._color
 
-    @colour.setter
-    def colour(self, value: bool) -> None:
-        self._colour = value
+    @color.setter
+    def color(self, value: bool) -> None:
+        self._color = value
         if self._theme:
-            self._theme.colour = value
+            self._theme.color = value
 
     def set_theme(self, theme: HelpTheme) -> None:
         self._theme = theme
-        theme.colour = self._colour
+        theme.color = self._color
 
     @staticmethod
     @lru_cache(1024)
@@ -246,7 +246,7 @@ class Help:
         "max_help_position",
         "width",
         "_commands_help",
-        "_colour",
+        "_color",
     )
 
     def __init__(
@@ -256,32 +256,32 @@ class Help:
         theme: HelpTheme | None = None,
         max_help_position: int = 27,
         width: int | None = None,
-        colour: bool = True,
+        color: bool = True,
     ):
         self.cli = cli
         self.usage = usage
         self.max_help_position = max_help_position
         self.width = width
         self._commands_help: Dict[str, dict] = {}
-        self._colour = colour if not os.environ.get("NO_COLOR", "").strip() else False
-        self.theme = theme or HelpTheme(colour=self._colour)
+        self._color = color if not os.environ.get("NO_COLOR", "").strip() else False
+        self.theme = theme or HelpTheme(color=self._color)
 
     @property
-    def colour(self) -> bool:
-        return self._colour
+    def color(self) -> bool:
+        return self._color
 
-    @colour.setter
-    def colour(self, value: bool) -> None:
-        self._colour = value
+    @color.setter
+    def color(self, value: bool) -> None:
+        self._color = value
         if self.theme:
-            self.theme.colour = value
+            self.theme.color = value
 
     def _create_formatter(self) -> HelpFormatter:
         f = HelpFormatter(
             self.cli.name or "cli",
             max_help_position=self.max_help_position,
             width=self.width,
-            colour=self._colour,
+            color=self._color,
         )
         f.set_theme(self.theme)
         return f
