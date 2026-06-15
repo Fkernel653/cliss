@@ -322,3 +322,6 @@ class CLI:
                 echo(str(result))
         except Exception as e:
             self._error_handler(str(e))
+
+    def __call__(self, args: List[str] | None = None) -> None:
+        return self.run(args)
