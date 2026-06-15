@@ -7,12 +7,10 @@ import sys
 from typing import Any, Callable, Dict, List, NoReturn, TextIO
 
 from .argument import Argument
-from .colors import error, info
+from .colors import error, info, set_colors
 from .help import Help
 from .utils import echo, get_type_from_annotation, is_bool_type
 
-ERROR_PREFIX = "Error: "
-INFO_PREFIX = "Info: "
 INFO_MESSAGE = "See documentation or run --help"
 
 
@@ -78,11 +76,10 @@ class CLI:
         )
 
     def _error_handler(self, message: str, file: TextIO = sys.stderr) -> NoReturn:
-        if self.color:
-            echo(error(message), file=file)
-            echo(info(INFO_MESSAGE), file=file)
-        else:
-            echo(f"{ERROR_PREFIX}{message}\n{INFO_PREFIX}{INFO_MESSAGE}", file=file)
+        if not self.color:
+            set_colors(False)
+        echo(error(message), file=file)
+        echo(info(INFO_MESSAGE), file=file)
         sys.exit(2)
 
     def add_global_argument(self, *flags: str, **kwargs: Any) -> None:
@@ -289,17 +286,12 @@ class CLI:
         ]
 
         if unknown_flags:
+            if not self.color:
+                set_colors(False)
+            file = sys.stderr
             for flag in unknown_flags:
-                echo(
-                    error(f"Unknown option: {flag}")
-                    if self.color
-                    else f"{ERROR_PREFIX}Unknown option: {flag}",
-                    file=sys.stderr,
-                )
-            echo(
-                info(INFO_MESSAGE) if self.color else f"{INFO_PREFIX}{INFO_MESSAGE}",
-                file=sys.stderr,
-            )
+                echo(error(f"Unknown option: {flag}"), file=file)
+            echo(info(INFO_MESSAGE), file=file)
             sys.exit(2)
 
         cmd_parsed, cmd_positional = self._parse_arguments(cmd_args, cmd_arg_defs)
