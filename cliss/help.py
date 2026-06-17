@@ -185,12 +185,13 @@ class HelpFormatter:
         indent, padding_base = "  ", self.max_help_position + 2
 
         for arg in args:
-            flags = ", ".join(arg.flags)
-            invocation = (
-                f"<{arg.name}>"
-                if (arg.required or not arg.flags[0].startswith("-"))
-                else flags
-            )
+            display_flags = getattr(arg, "help_flags", arg.flags)
+
+            if display_flags and display_flags[0].startswith("-"):
+                invocation = ", ".join(display_flags)
+            else:
+                invocation = f"<{arg.name}>"
+
             styled_inv = t.apply_option(invocation) if t else invocation
             padding = max(2, self.max_help_position - self._visible_len(styled_inv))
 
@@ -229,12 +230,24 @@ class HelpFormatter:
     def _build_command_usage(self, command_name: str, args: List["ArgumentDef"]) -> str:
         parts = [self.prog, command_name]
         for arg in args:
+            display_flags = getattr(arg, "help_flags", arg.flags)
+
             if arg.required:
-                parts.append(f"<{arg.name}>")
-            elif arg.flags and arg.flags[0].startswith("-"):
-                parts.append(f"[{arg.flags[0]}]")
+                if display_flags and display_flags[0].startswith("-"):
+                    if len(display_flags) > 1:
+                        parts.append(f"( {' | '.join(display_flags)} )")
+                    else:
+                        parts.append(display_flags[0])
+                else:
+                    parts.append(f"<{arg.name}>")
             else:
-                parts.append(f"[<{arg.name}>]")
+                if display_flags and display_flags[0].startswith("-"):
+                    if len(display_flags) > 1:
+                        parts.append(f"[ {' | '.join(display_flags)} ]")
+                    else:
+                        parts.append(f"[{display_flags[0]}]")
+                else:
+                    parts.append(f"[<{arg.name}>]")
         return " ".join(parts)
 
 

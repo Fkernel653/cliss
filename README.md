@@ -36,6 +36,18 @@ def fetch(url: str, retries: int = 3):
     return f"Fetched {url} (retries: {retries})"
 ```
 
+### `@cli.argument()` — Customize argument flags
+Use `@cli.argument()` above `@cli.command()` to customize flags, help text, and behavior for individual parameters without needing the `Argument` class.
+
+```python
+@cli.argument("-v", "--verbose", help="Enable verbose output")
+@cli.argument("-r", "--retries", type=int, help="Number of retries")
+@cli.command()
+def fetch(url: str, verbose: bool = False, retries: int = 3):
+    """Download from URL"""
+    return f"Fetched {url} (retries: {retries})"
+```
+
 ### Type → CLI mapping
 
 | Function signature | CLI argument |
@@ -44,6 +56,14 @@ def fetch(url: str, retries: int = 3):
 | `count: int = 1` | `--count` (default: 1) |
 | `verbose: bool = False` | `--verbose` / `--no-verbose` |
 | `mode: str = None` | `--mode` (default: None) |
+
+### Boolean flag behavior
+
+| Function signature | Help display | Usage |
+|--------------------|--------------|-------|
+| `flag: bool` | `--flag, --no-flag` (required) | `--flag` or `--no-flag` |
+| `flag: bool = False` | `--flag` (default: disabled) | `--flag` enables, `--no-flag` also works |
+| `flag: bool = True` | `--no-flag` (default: enabled) | `--no-flag` disables, `--flag` also works |
 
 ### Command groups
 ```python

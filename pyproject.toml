@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cliss"
-version = "1.1.4"
+version = "1.1.5"
 description = "Write type-annotated Python functions, get a full CLI — automatic `--help`, validation, async support, and zero dependencies"
 readme = "README.md"
 requires-python = ">=3.10"
