@@ -2,6 +2,6 @@
 
 from . import help
 from .argument import Argument
-from .cli import CLI
+from .cli import Cliss
 
-__all__ = ["Argument", "CLI", "help"]
+__all__ = ["Argument", "Cliss", "help"]

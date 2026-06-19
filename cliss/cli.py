@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 import sys
-from typing import Any, Callable, Dict, List, NoReturn, TextIO
+from typing import Any, Callable, Dict, List, NoReturn, TextIO, Union
 
 from .argument import Argument
 from .colors import error, info, set_colors
@@ -33,36 +33,6 @@ class ArgumentDef:
     def __init__(
         self, name: str, flags: List[str], help_flags: List[str] | None = None, **kwargs
     ):
-        """
-        Initialize an argument definition for CLI command parsing.
-
-        Args:
-            name: Internal name of the argument (used as key in parsed kwargs).
-            flags: All valid command-line flags for parsing (e.g., ['-s', '--string', '--no-string']).
-            help_flags: Subset of flags to display in help text. If None, defaults to all flags.
-            **kwargs: Additional argument options:
-                default: Default value if argument is not provided.
-                type: Expected type for value casting (default: str).
-                help: Description text for help output.
-                action: Special action handler ('store_true', 'store_false', 'version').
-                required: Whether the argument must be provided (default: False).
-                is_bool: Whether this is a boolean flag argument (default: False).
-                negated_flag: The negated version of the flag (e.g., '--no-string').
-
-        Example:
-            >>> # Boolean flag with default False (shows --string in help)
-            >>> ArgumentDef(
-            ...     "string",
-            ...     ["-s", "--string", "--no-string"],
-            ...     help_flags=["-s", "--string"],
-            ...     type=bool,
-            ...     default=False,
-            ...     action="store_true",
-            ...     is_bool=True,
-            ...     help="Enable string mode",
-            ...     negated_flag="--no-string"
-            ... )
-        """
         self.name = name
         self.flags = flags
         self.help_flags = help_flags if help_flags is not None else flags
@@ -75,7 +45,7 @@ class ArgumentDef:
         self.negated_flag = kwargs.get("negated_flag")
 
 
-class CLI:
+class Cliss:
     """
     Main CLI class for building command-line interfaces with decorators.
 
@@ -88,7 +58,7 @@ class CLI:
         - Built-in help and version commands
 
     Example:
-        >>> app = CLI(name="myapp", description="My awesome CLI")
+        >>> app = Cliss(name="myapp", description="My awesome CLI")
         >>>
         >>> @app.command()
         >>> def hello(name: str, verbose: bool = False):
@@ -109,23 +79,6 @@ class CLI:
         description: str | None = None,
         version: str | None = None,
     ):
-        """
-        Initialize the CLI application.
-
-        Args:
-            name: Name of the CLI application (shown in help)
-            usage: Usage string template (can use {self.name})
-            color: Whether to use colored output
-            description: Application description (shown in help)
-            version: Version string (enables --version flag)
-
-        Example:
-            >>> app = CLI(
-            ...     name="mycli",
-            ...     description="A simple CLI tool",
-            ...     version="1.0.0"
-            ... )
-        """
         self.name = name
         self.color = color
         self.description = description
@@ -156,65 +109,17 @@ class CLI:
         )
 
     def _error_handler(self, message: str, file: TextIO = sys.stderr) -> NoReturn:
-        """Handle errors by printing message and exiting."""
-        if not self.color:
-            set_colors(False)
+        set_colors(self.color)
         echo(error(message), file=file)
         echo(info(INFO_MESSAGE), file=file)
         sys.exit(2)
 
     def add_global_argument(self, *flags: str, **kwargs: Any) -> None:
-        """
-        Add a global argument/flag available to all commands.
-
-        Args:
-            *flags: Command-line flags (e.g., '-v', '--verbose')
-            **kwargs: Additional options:
-                dest: Internal name (defaults to last flag without dashes)
-                default: Default value
-                type: Type to cast to
-                help: Help text
-                action: Special action ('store_true', 'store_false')
-                required: Whether required
-
-        Example:
-            >>> app.add_global_argument(
-            ...     '-v', '--verbose',
-            ...     action='store_true',
-            ...     help='Enable verbose output'
-            ... )
-        """
         name = kwargs.pop("dest", None) or flags[-1].lstrip("-").replace("-", "_")
         self._global_args.append(ArgumentDef(name, list(flags), **kwargs))
 
-    def group(self, name: str, description: str | None = None) -> CLI:
-        """
-        Create a command group for organizing related commands.
-
-        Commands in a group are prefixed with the group name (e.g., 'group:command').
-        This is useful for organizing large CLIs with many commands.
-
-        Args:
-            name: Name of the group
-            description: Description of the group (shown in help)
-
-        Returns:
-            A new CLI instance for registering grouped commands
-
-        Example:
-            >>> app = CLI()
-            >>>
-            >>> # Create a group
-            >>> db = app.group('db', 'Database operations')
-            >>>
-            >>> @db.command()
-            >>> def migrate():
-            >>>     \"\"\"Run database migrations.\"\"\"
-            >>>     print("Migrating...")
-            >>>
-            >>> # Command is accessible as 'db:migrate' or 'db migrate'
-        """
-        sub_cli = CLI.__new__(CLI)
+    def group(self, name: str, description: str | None = None) -> Cliss:
+        sub_cli = Cliss.__new__(Cliss)
         sub_cli.__dict__.update(
             name=name,
             description=description,
@@ -228,63 +133,114 @@ class CLI:
         )
         return sub_cli
 
-    def argument(self, *flags: str, **kwargs: Any) -> Callable:
+    def argument(
+        self, *args: Union[str, List[Union[str, Dict[str, Any]]]], **kwargs: Any
+    ) -> Callable:
         """
-        Decorator to add argument configuration to a command function.
+        Decorator to customize argument flags for a command function parameter.
+
+        Can be used in three ways:
+        1. Single argument with kwargs: @app.argument("-v", "--verbose", action="store_true", help="Enable verbose")
+        2. Multiple arguments: @app.argument(
+               ["-v", "--verbose", {"action": "store_true", "help": "Enable verbose"}],
+               ["-o", "--output", {"help": "Output file", "default": "out.txt"}]
+           )
+        3. Mixed: @app.argument("-v", "--verbose", help="Enable verbose")
 
         Args:
-            *flags: Command-line flags (e.g., '-s', '--string')
-            **kwargs: Additional options (dest, help, type, required, choices, action, etc.)
+            *args: Either individual flag strings or list of argument definitions
+            **kwargs: Additional options (action, type, default, help, required, choices, etc.)
 
         Returns:
-            Decorator that adds argument metadata to the function
+            Decorator that attaches argument metadata to the function
+
+        Examples:
+            >>> @app.argument("-v", "--verbose", action="store_true", help="Enable verbose")
+            >>> @app.command()
+            >>> def process(verbose: bool = False):
+            >>>     ...
+
+            >>> @app.argument(
+            >>>     ["-v", "--verbose", {"action": "store_true", "help": "Enable verbose"}],
+            >>>     ["-o", "--output", {"help": "Output file", "default": "out.txt"}]
+            >>> )
+            >>> @app.command()
+            >>> def process(verbose: bool = False, output: str = "out.txt"):
+            >>>     ...
         """
 
         def decorator(func):
-            if not hasattr(func, "_cli_arguments"):
+            cli_args = getattr(func, "_cli_arguments", None)
+            if cli_args is None:
                 setattr(func, "_cli_arguments", [])
-            func._cli_arguments.append({"flags": list(flags), **kwargs})
+
+            if not args and not kwargs:
+                return func
+
+            if len(args) == 1 and isinstance(args[0], list) and args[0]:
+                for arg_def in args[0]:
+                    if isinstance(arg_def, list):
+                        self._parse_argument_definition(arg_def, func)
+                    elif isinstance(arg_def, dict):
+                        self._parse_argument_definition([], func, arg_def)
+            else:
+                flags = [a for a in args if isinstance(a, str)]
+                extra_kwargs = {}
+                for a in args:
+                    if isinstance(a, dict):
+                        extra_kwargs.update(a)
+                extra_kwargs.update(kwargs)
+
+                if flags:
+                    self._parse_argument_definition(flags, func, extra_kwargs)
+
             return func
 
         return decorator
+
+    def _parse_argument_definition(
+        self, flags: List[str], func: Callable, kwargs: Dict[str, Any] | None = None
+    ) -> None:
+        kwargs = kwargs or {}
+        if flags:
+            cli_args = getattr(func, "_cli_arguments", None)
+            if cli_args is None:
+                setattr(func, "_cli_arguments", [])
+            getattr(func, "_cli_arguments").append({"flags": flags, **kwargs})
 
     def command(
         self,
         name: str | None = None,
         description: str | None = None,
-        arguments: List[Argument] | None = None,
     ) -> Callable:
         """
-        Decorator to register a function as a CLI command.
+        Decorator for creating a CLI command from a function.
 
-        The decorated function's parameters become command arguments:
-        - Parameters with defaults become optional flags (--param)
-        - Parameters without defaults become positional arguments
-        - Boolean parameters become --flag/--no-flag options
-        - Use @app.argument() alongside this decorator for custom flags
+        The decorated function's parameters are automatically converted to
+        CLI arguments. Boolean parameters become --flag/--no-flag pairs.
+
+        Can be combined with @app.argument() to customize individual parameter flags.
 
         Args:
-            name: Custom command name (defaults to function name with underscores replaced by dashes)
-            description: Command description (defaults to function docstring)
-            arguments: List of Argument objects for explicit argument definitions
+            name: Custom command name (defaults to function name with underscores replaced by dashes).
+            description: Command description (defaults to function docstring).
 
         Returns:
-            Decorator function that registers the command
+            Decorator function that registers the command.
 
         Example:
             >>> @app.command()
             >>> def greet(name: str, uppercase: bool = False):
-            >>>     \"\"\"Greet a person by name.\"\"\"
+            >>>     \"\"\"Greet a person.\"\"\"
             >>>     msg = f"Hello, {name}!"
-            >>>     if uppercase:
-            >>>         msg = msg.upper()
-            >>>     print(msg)
-            >>>
-            >>> # Usage:
-            >>> # $ mycli greet Alice
-            >>> # Hello, Alice!
-            >>> # $ mycli greet Bob --uppercase
-            >>> # HELLO, BOB!
+            >>>     return msg.upper() if uppercase else msg
+
+        Example with @app.argument():
+            >>> @app.argument("-u", "--uppercase", help="Convert to uppercase")
+            >>> @app.command()
+            >>> def greet(name: str, uppercase: bool = False):
+            >>>     msg = f"Hello, {name}!"
+            >>>     return msg.upper() if uppercase else msg
         """
 
         def decorator(func: Callable) -> Callable:
@@ -297,13 +253,14 @@ class CLI:
             group_prefix = getattr(self, "_group_name", None)
             full_name = f"{group_prefix}:{cmd_name}" if group_prefix else cmd_name
 
-            all_arguments = list(arguments) if arguments else []
-
             cli_args = getattr(func, "_cli_arguments", None)
+            all_arguments = []
+
             if cli_args:
                 for arg_config in cli_args:
-                    flags = arg_config.pop("flags")
-                    all_arguments.append(Argument(*flags, **arg_config))
+                    flags = arg_config["flags"]
+                    kwargs = {k: v for k, v in arg_config.items() if k != "flags"}
+                    all_arguments.append(Argument(*flags, **kwargs))
 
             target[full_name] = {
                 "func": func,
@@ -321,16 +278,6 @@ class CLI:
     def _parse_arguments(
         self, args: List[str], arg_defs: List[ArgumentDef]
     ) -> tuple[dict, List[str]]:
-        """
-        Parse command-line arguments against argument definitions.
-
-        Args:
-            args: List of argument strings
-            arg_defs: List of argument definitions
-
-        Returns:
-            Tuple of (parsed dictionary, remaining positional arguments)
-        """
         parsed = {}
         positional = []
         i = 0
@@ -395,9 +342,6 @@ class CLI:
         return parsed, positional
 
     def _build_arg_defs(self, cmd_info: dict) -> List[ArgumentDef]:
-        """
-        Build argument definitions from a command's function signature.
-        """
         arg_defs = []
         explicit_dests = set()
 
@@ -500,16 +444,6 @@ class CLI:
         return arg_defs
 
     def print_help(self, command_name: str | None = None) -> None:
-        """
-        Print help information for the CLI or a specific command.
-
-        Args:
-            command_name: Name of the command to show help for (None for global help)
-
-        Example:
-            >>> app.print_help()  # Show global help
-            >>> app.print_help('greet')  # Show help for 'greet' command
-        """
         if command_name and (cmd_info := self._commands.get(command_name)):
             help_text = self._help_system.format_command_help(
                 command_name, cmd_info["description"], self._build_arg_defs(cmd_info)
@@ -524,27 +458,10 @@ class CLI:
 
     def run(self, args: List[str] | None = None) -> None:
         """
-        Parse arguments and execute the appropriate command.
-
-        This is the main entry point for the CLI. It parses command-line arguments,
-        finds the matching command, parses command-specific arguments, and executes
-        the command function.
+        Parse command-line arguments and execute the appropriate command.
 
         Args:
-            args: Command-line arguments (defaults to sys.argv[1:])
-
-        Returns:
-            None (exits with status code on error)
-
-        Example:
-            >>> if __name__ == "__main__":
-            >>>     app.run()
-            >>>
-            >>> # Or with custom arguments:
-            >>> app.run(["greet", "Alice", "--uppercase"])
-
-        Raises:
-            SystemExit: On error or help display
+            args: Command-line arguments (defaults to sys.argv[1:]).
         """
         args = sys.argv[1:] if args is None else args
         global_parsed, remaining = self._parse_arguments(args, self._global_args)
@@ -608,8 +525,7 @@ class CLI:
         ]
 
         if unknown_flags:
-            if not self.color:
-                set_colors(False)
+            set_colors(self.color)
             file = sys.stderr
             for flag in unknown_flags:
                 echo(error(f"Unknown option: {flag}"), file=file)
@@ -672,10 +588,10 @@ class CLI:
         Make the CLI instance callable, delegating to run().
 
         Args:
-            args: Command-line arguments (defaults to sys.argv[1:])
+            args: Command-line arguments (defaults to sys.argv[1:]).
 
         Example:
-            >>> app = CLI()
+            >>> app = Cliss()
             >>> app()  # Equivalent to app.run()
         """
         return self.run(args)

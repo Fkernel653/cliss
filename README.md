@@ -13,9 +13,9 @@ Write type-annotated Python functions, get a full CLI — automatic `--help`, va
 pip install cliss                    # Python 3.10+
 ```
 ```python
-from cliss import CLI
+from cliss import Cliss
 
-cli = CLI(name="todo", description="Task manager", version="1.0.0")
+cli = Cliss(name="todo", description="Task manager", version="1.0.0")
 
 @cli.command()
 def add(task: str, priority: int = 1, done: bool = False):
@@ -23,7 +23,33 @@ def add(task: str, priority: int = 1, done: bool = False):
     status = "✓" if done else "○"
     return f"[{status}] {task} (priority: {priority})"
 
+@cli.command()
+def list_all():
+    """Show all tasks."""
+    return "Nothing yet!"
+
 cli()
+```
+
+```bash
+$ python todo.py add "Buy milk" --priority 2
+[○] Buy milk (priority: 2)
+
+$ python todo.py list-all
+Nothing yet!
+
+$ python todo.py --help
+Usage: todo [COMMAND] [OPTIONS] [ARGS]...
+
+Task manager
+
+Commands:
+  add           Add a task.
+  list-all      Show all tasks.
+
+Options:
+  -V, --version Print version info and exit
+  -h, --help    Print help
 ```
 
 ## 📋 Commands & Features
@@ -37,7 +63,7 @@ def fetch(url: str, retries: int = 3):
 ```
 
 ### `@cli.argument()` — Customize argument flags
-Use `@cli.argument()` above `@cli.command()` to customize flags, help text, and behavior for individual parameters without needing the `Argument` class.
+Use `@cli.argument()` above `@cli.command()` to customize flags, help text, and behavior for individual parameters.
 
 ```python
 @cli.argument("-v", "--verbose", help="Enable verbose output")
@@ -81,23 +107,10 @@ async def fetch(url: str, retries: int = 3):
     return f"Fetched {url} (retries: {retries})"
 ```
 
-### Manual argument declaration
-```python
-from cliss import Argument
-
-@cli.command()
-def convert(
-    input: str,
-    output: str,
-    format: Argument("--format", "-f", choices=["json", "csv"], default="json")
-):
-    return f"Converted {input} → {output}.{format}"
-```
-
 ## 🎨 CLI Configuration
 
 ```python
-cli = CLI(
+cli = Cliss(
     name="myapp",                      # Program name in help
     description="Does amazing things", # Description in help
     version="2.0.0",                   # Adds --version flag
