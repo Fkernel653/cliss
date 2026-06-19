@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import inspect
 import sys
-from typing import Any, Callable, Dict, List, NoReturn, TextIO, Union
+from typing import Any, Callable, Dict, List, NoReturn, TextIO, Union, cast
 
 from .argument import Argument
 from .colors import error, info, set_colors
@@ -212,6 +212,7 @@ class Cliss:
         self,
         name: str | None = None,
         description: str | None = None,
+        arguments: List[List] | None = None,
     ) -> Callable:
         """
         Decorator for creating a CLI command from a function.
@@ -219,11 +220,14 @@ class Cliss:
         The decorated function's parameters are automatically converted to
         CLI arguments. Boolean parameters become --flag/--no-flag pairs.
 
-        Can be combined with @app.argument() to customize individual parameter flags.
+        Can be combined with @app.argument() or the `arguments` parameter to customize
+        individual parameter flags.
 
         Args:
             name: Custom command name (defaults to function name with underscores replaced by dashes).
             description: Command description (defaults to function docstring).
+            arguments: List of argument definitions in [flags..., {kwargs}] format.
+                      Each item is a list where the last element is a dict of options.
 
         Returns:
             Decorator function that registers the command.
@@ -241,6 +245,15 @@ class Cliss:
             >>> def greet(name: str, uppercase: bool = False):
             >>>     msg = f"Hello, {name}!"
             >>>     return msg.upper() if uppercase else msg
+
+        Example with arguments parameter:
+            >>> @app.command(arguments=[
+            >>>     ["-n", "--name", {"help": "Your name"}],
+            >>>     ["-u", "--uppercase", {"action": "store_true", "help": "Convert to uppercase"}]
+            >>> ])
+            >>> def greet(name: str, uppercase: bool = False):
+            >>>     msg = f"Hello, {name}!"
+            >>>     return msg.upper() if uppercase else msg
         """
 
         def decorator(func: Callable) -> Callable:
@@ -252,6 +265,23 @@ class Cliss:
             )
             group_prefix = getattr(self, "_group_name", None)
             full_name = f"{group_prefix}:{cmd_name}" if group_prefix else cmd_name
+
+            if arguments:
+                for arg_def in arguments:
+                    flags = []
+                    kwargs = {}
+                    for item in arg_def:
+                        if isinstance(item, str):
+                            flags.append(item)
+                        elif isinstance(item, dict):
+                            kwargs.update(item)
+                    if flags:
+                        cli_args = getattr(func, "_cli_arguments", None)
+                        if cli_args is None:
+                            setattr(func, "_cli_arguments", [])
+                        cast(Any, func)._cli_arguments.append(
+                            {"flags": flags, **kwargs}
+                        )
 
             cli_args = getattr(func, "_cli_arguments", None)
             all_arguments = []
