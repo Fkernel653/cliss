@@ -1,4 +1,4 @@
-"""Main CLI class — pure sys.argv implementation with decorator-based command registration."""
+"""cliss — A lightweight framework for building CLI applications on top of sys.argv."""
 
 from __future__ import annotations
 
