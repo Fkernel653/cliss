@@ -89,6 +89,8 @@ class Cliss:
         self._group_name: str | None = None
         self._parent_commands: Dict[str, dict] | None = None
 
+        set_colors(self.color)
+
         if version:
             self._global_args.append(
                 ArgumentDef(
@@ -109,7 +111,6 @@ class Cliss:
         )
 
     def _error_handler(self, message: str, file: TextIO = sys.stderr) -> NoReturn:
-        set_colors(self.color)
         echo(error(message), file=file)
         echo(info(INFO_MESSAGE), file=file)
         sys.exit(2)
@@ -555,7 +556,6 @@ class Cliss:
         ]
 
         if unknown_flags:
-            set_colors(self.color)
             file = sys.stderr
             for flag in unknown_flags:
                 echo(error(f"Unknown option: {flag}"), file=file)

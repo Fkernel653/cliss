@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Dict, List
 from .colors import BOLD_CYAN, BOLD_GREEN, WHITE, styled
 
 if TYPE_CHECKING:
-    from .cli import CLI, ArgumentDef
+    from .cli import ArgumentDef, Cliss
 
 
 class HelpTheme:
@@ -264,7 +264,7 @@ class Help:
 
     def __init__(
         self,
-        cli: "CLI",
+        cli: "Cliss",
         usage: str,
         theme: HelpTheme | None = None,
         max_help_position: int = 27,
