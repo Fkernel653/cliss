@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cliss"
-version = "1.1.9"
+version = "1.2.0"
 description = "Write type-annotated Python functions, get a full CLI — automatic `--help`, validation, async support, and zero dependencies"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+license = "GPL-3.0-only"
 authors = [
     {name = "Fkernel653"}
 ]
@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: User Interfaces",
     "Topic :: Terminals",
