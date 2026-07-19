@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 [![PyPI](https://img.shields.io/pypi/v/cliss.svg)](https://pypi.org/project/cliss/)
-[![License](https://img.shields.io/badge/license-GPLv3-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey)]()
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-261230?logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
 
@@ -133,7 +133,7 @@ NO_COLOR=1 python myapp.py --help
 
 ## 📄 License & Acknowledgments
 
-GPLv3 License — Built with pure Python standard library:
+MIT License — Built with pure Python standard library:
 
 | Module | Purpose |
 |--------|---------|
