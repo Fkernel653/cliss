@@ -9,12 +9,12 @@ class HelpTheme:
     """Theme for help output formatting."""
 
     __slots__ = (
-        "usage",
-        "header",
-        "option_string",
-        "metavar",
-        "description",
         "_color",
+        "description",
+        "header",
+        "metavar",
+        "option_string",
+        "usage",
     )
 
     def __init__(

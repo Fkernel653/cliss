@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, Dict, List, Union, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 from .._types.definitions import Argument
 
@@ -12,7 +13,7 @@ class DecoratorManager:
     """Manage decorators for CLI commands."""
 
     def __init__(
-        self, commands: Dict[str, dict], parent_commands: Dict[str, dict] | None = None
+        self, commands: dict[str, dict], parent_commands: dict[str, dict] | None = None
     ):
         self._commands = commands
         self._parent_commands = parent_commands
@@ -27,14 +28,14 @@ class DecoratorManager:
         self._group_name = value
 
     def argument(
-        self, *args: Union[str, List[Union[str, Dict[str, Any]]]], **kwargs: Any
+        self, *args: str | list[str | dict[str, Any]], **kwargs: Any
     ) -> Callable:
         """Decorator to customize argument flags."""
 
         def decorator(func):
             cli_args = getattr(func, "_cli_arguments", None)
             if cli_args is None:
-                setattr(func, "_cli_arguments", [])
+                func._cli_arguments = []
 
             if not args and not kwargs:
                 return func
@@ -61,20 +62,20 @@ class DecoratorManager:
         return decorator
 
     def _parse_argument_definition(
-        self, flags: List[str], func: Callable, kwargs: Dict[str, Any] | None = None
+        self, flags: list[str], func: Callable, kwargs: dict[str, Any] | None = None
     ) -> None:
         kwargs = kwargs or {}
         if flags:
             cli_args = getattr(func, "_cli_arguments", None)
             if cli_args is None:
-                setattr(func, "_cli_arguments", [])
-            getattr(func, "_cli_arguments").append({"flags": flags, **kwargs})
+                func._cli_arguments = []
+            func._cli_arguments.append({"flags": flags, **kwargs})
 
     def command(
         self,
         name: str | None = None,
         description: str | None = None,
-        arguments: List[List] | None = None,
+        arguments: list[list] | None = None,
     ) -> Callable:
         """Decorator for creating a CLI command."""
 
@@ -100,7 +101,7 @@ class DecoratorManager:
                     if flags:
                         cli_args = getattr(func, "_cli_arguments", None)
                         if cli_args is None:
-                            setattr(func, "_cli_arguments", [])
+                            func._cli_arguments = []
                         cast(Any, func)._cli_arguments.append(
                             {"flags": flags, **kwargs}
                         )

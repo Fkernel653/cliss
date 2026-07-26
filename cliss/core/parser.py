@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import inspect
-from typing import Callable, List, NoReturn
+from collections.abc import Callable
+from typing import NoReturn
 
 from .._types.definitions import ArgumentDef
 from ..utils import get_type_from_annotation, is_bool_type
@@ -16,8 +17,8 @@ class ArgumentParser:
         self._error_handler = error_handler
 
     def parse_arguments(
-        self, args: List[str], arg_defs: List[ArgumentDef]
-    ) -> tuple[dict, List[str]]:
+        self, args: list[str], arg_defs: list[ArgumentDef]
+    ) -> tuple[dict, list[str]]:
         """Parse arguments against definitions."""
         parsed = {}
         positional = []
@@ -53,9 +54,10 @@ class ArgumentParser:
             if arg in flag_map:
                 arg_def = flag_map[arg]
 
-                if arg_def.action == "version":
-                    parsed[arg_def.name] = True
-                elif arg_def.action in ("store_true", "store_false"):
+                if arg_def.action == "version" or arg_def.action in (
+                    "store_true",
+                    "store_false",
+                ):
                     parsed[arg_def.name] = True
                 else:
                     if i + 1 < len(args) and not args[i + 1].startswith("-"):
@@ -81,7 +83,7 @@ class ArgumentParser:
 
         return parsed, positional
 
-    def build_arg_defs(self, cmd_info: dict) -> List[ArgumentDef]:
+    def build_arg_defs(self, cmd_info: dict) -> list[ArgumentDef]:
         """Build argument definitions from command info."""
         arg_defs = []
         explicit_dests = set()

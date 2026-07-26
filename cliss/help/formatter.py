@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import shutil
 from functools import lru_cache
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING
 
 from .theme import HelpTheme
 
@@ -54,7 +54,7 @@ class HelpFormatter:
             len(HelpFormatter._ANSI_RE.sub("", text)) if "\033[" in text else len(text)
         )
 
-    def _wrap_text(self, text: str, indent: int = 0) -> List[str]:
+    def _wrap_text(self, text: str, indent: int = 0) -> list[str]:
         prefix = " " * indent
         max_width = self.width - indent
         lines, current = [], ""
@@ -76,9 +76,9 @@ class HelpFormatter:
         self,
         description: str | None,
         usage: str,
-        global_args: List[ArgumentDef],
-        commands: Dict[str, str],
-        command_args: List[ArgumentDef] | None = None,
+        global_args: list[ArgumentDef],
+        commands: dict[str, str],
+        command_args: list[ArgumentDef] | None = None,
     ) -> str:
         t = self._theme
         lines = []
@@ -108,7 +108,7 @@ class HelpFormatter:
         return "\n".join(lines)
 
     def format_command_help(
-        self, command_name: str, description: str | None, args: List[ArgumentDef]
+        self, command_name: str, description: str | None, args: list[ArgumentDef]
     ) -> str:
         t = self._theme
         lines = []
@@ -128,7 +128,7 @@ class HelpFormatter:
 
         return "\n".join(lines)
 
-    def _format_arguments(self, args: List[ArgumentDef]) -> List[str]:
+    def _format_arguments(self, args: list[ArgumentDef]) -> list[str]:
         t, lines = self._theme, []
         indent, padding_base = "  ", self.max_help_position + 2
 
@@ -152,7 +152,7 @@ class HelpFormatter:
 
         return lines
 
-    def _format_commands(self, commands: Dict[str, str]) -> List[str]:
+    def _format_commands(self, commands: dict[str, str]) -> list[str]:
         t, lines = self._theme, []
         indent, padding_base = "  ", self.max_help_position + 2
 
@@ -175,7 +175,7 @@ class HelpFormatter:
 
         return lines
 
-    def _build_command_usage(self, command_name: str, args: List[ArgumentDef]) -> str:
+    def _build_command_usage(self, command_name: str, args: list[ArgumentDef]) -> str:
         parts = [self.prog, command_name]
         for arg in args:
             display_flags = getattr(arg, "help_flags", arg.flags)

@@ -17,16 +17,19 @@ from cliss import Cliss
 
 cli = Cliss(name="todo", description="Task manager", version="1.0.0")
 
+
 @cli.command()
 def add(task: str, priority: int = 1, done: bool = False):
     """Add a task."""
     status = "✓" if done else "○"
     return f"[{status}] {task} (priority: {priority})"
 
+
 @cli.command()
 def list_all():
     """Show all tasks."""
     return "Nothing yet!"
+
 
 cli()
 ```
@@ -95,6 +98,7 @@ def fetch(url: str, verbose: bool = False, retries: int = 3):
 ```python
 remote = cli.group("remote", "Manage remotes")
 
+
 @remote.command()
 def add(name: str, url: str):
     return f"Added remote {name}"
@@ -111,10 +115,10 @@ async def fetch(url: str, retries: int = 3):
 
 ```python
 cli = Cliss(
-    name="myapp",                      # Program name in help
-    description="Does amazing things", # Description in help
-    version="2.0.0",                   # Adds --version flag
-    color=False,                       # Disable ANSI colours
+    name="myapp",  # Program name in help
+    description="Does amazing things",  # Description in help
+    version="2.0.0",  # Adds --version flag
+    color=False,  # Disable ANSI colours
 )
 ```
 

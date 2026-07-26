@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING
 
 from .formatter import HelpFormatter
 from .theme import HelpTheme
@@ -17,18 +17,18 @@ class Help:
     """Main help system manager."""
 
     __slots__ = (
-        "cli",
-        "usage",
-        "theme",
-        "max_help_position",
-        "width",
-        "_commands_help",
         "_color",
+        "_commands_help",
+        "cli",
+        "max_help_position",
+        "theme",
+        "usage",
+        "width",
     )
 
     def __init__(
         self,
-        cli: "Cliss",
+        cli: Cliss,
         usage: str,
         theme: HelpTheme | None = None,
         max_help_position: int = 27,
@@ -39,7 +39,7 @@ class Help:
         self.usage = usage
         self.max_help_position = max_help_position
         self.width = width
-        self._commands_help: Dict[str, dict] = {}
+        self._commands_help: dict[str, dict] = {}
         self._color = color if not os.environ.get("NO_COLOR", "").strip() else False
         self.theme = theme or HelpTheme(color=self._color)
 
@@ -68,7 +68,7 @@ class Help:
         command_name: str,
         help_text: str | None = None,
         usage: str | None = None,
-        examples: List[str] | None = None,
+        examples: list[str] | None = None,
     ) -> None:
         self._commands_help[command_name] = {
             "help": help_text,
@@ -79,15 +79,15 @@ class Help:
     def format_help(
         self,
         description: str | None,
-        global_args: List["ArgumentDef"],
-        commands: Dict[str, str],
+        global_args: list[ArgumentDef],
+        commands: dict[str, str],
     ) -> str:
         return self._create_formatter().format_help(
             description, self.usage, global_args, commands
         )
 
     def format_command_help(
-        self, command_name: str, description: str | None, args: List["ArgumentDef"]
+        self, command_name: str, description: str | None, args: list[ArgumentDef]
     ) -> str:
         custom = self._commands_help.get(command_name, {})
         formatter = self._create_formatter()
@@ -113,10 +113,10 @@ class Help:
 
         return help_text
 
-    def get_command_list(self) -> List[str]:
+    def get_command_list(self) -> list[str]:
         return list(self.cli._commands.keys())
 
-    def add_examples(self, command_name: str, examples: List[str]) -> None:
+    def add_examples(self, command_name: str, examples: list[str]) -> None:
         self._commands_help.setdefault(command_name, {})["examples"] = examples
 
     def add_long_description(self, command_name: str, description: str) -> None:

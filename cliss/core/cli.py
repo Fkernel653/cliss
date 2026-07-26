@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import inspect
 import sys
-from typing import Any, Callable, Dict, List, NoReturn, TextIO
+from collections.abc import Callable
+from typing import Any, NoReturn, TextIO
 
 from .._types.definitions import ArgumentDef
 from ..colors import error, info, set_colors
@@ -31,11 +32,11 @@ class Cliss:
         self.color = color
         self.description = description
         self.version = version
-        self._commands: Dict[str, dict] = {}
+        self._commands: dict[str, dict] = {}
         self._help_system = Help(self, usage=usage.format(self=self), color=color)
-        self._global_args: List[ArgumentDef] = []
+        self._global_args: list[ArgumentDef] = []
         self._group_name: str | None = None
-        self._parent_commands: Dict[str, dict] | None = None
+        self._parent_commands: dict[str, dict] | None = None
         self._decorator_manager = DecoratorManager(self._commands)
 
         set_colors(self.color)
@@ -109,7 +110,7 @@ class Cliss:
             )
         echo(help_text)
 
-    def run(self, args: List[str] | None = None) -> None:
+    def run(self, args: list[str] | None = None) -> None:
         args = sys.argv[1:] if args is None else args
         global_parsed, remaining = self._parser.parse_arguments(args, self._global_args)
 
@@ -229,5 +230,5 @@ class Cliss:
         except Exception as e:
             self._error_handler(str(e))
 
-    def __call__(self, args: List[str] | None = None) -> None:
+    def __call__(self, args: list[str] | None = None) -> None:
         return self.run(args)

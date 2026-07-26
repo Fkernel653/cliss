@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any
 
 
 class Argument:
@@ -15,7 +15,7 @@ class Argument:
         default: Any = None,
         help: str = "",
         required: bool = False,
-        choices: List[Any] | None = None,
+        choices: list[Any] | None = None,
         action: str | None = None,
     ):
         self.flags = flags
@@ -31,20 +31,20 @@ class ArgumentDef:
     """Definition of a command-line argument or option."""
 
     __slots__ = (
-        "name",
-        "flags",
-        "help_flags",
-        "default",
-        "type",
-        "help",
         "action",
-        "required",
+        "default",
+        "flags",
+        "help",
+        "help_flags",
         "is_bool",
+        "name",
         "negated_flag",
+        "required",
+        "type",
     )
 
     def __init__(
-        self, name: str, flags: List[str], help_flags: List[str] | None = None, **kwargs
+        self, name: str, flags: list[str], help_flags: list[str] | None = None, **kwargs
     ):
         self.name = name
         self.flags = flags
