@@ -6,7 +6,7 @@ import inspect
 from collections.abc import Callable
 from typing import NoReturn
 
-from .._types.definitions import ArgumentDef
+from ..types.definitions import ArgumentDef
 from ..utils import get_type_from_annotation, is_bool_type
 
 

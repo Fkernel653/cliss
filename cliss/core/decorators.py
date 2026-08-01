@@ -6,7 +6,7 @@ import inspect
 from collections.abc import Callable
 from typing import Any, cast
 
-from .._types.definitions import Argument
+from ..types.definitions import Argument
 
 
 class DecoratorManager:
@@ -68,8 +68,8 @@ class DecoratorManager:
         if flags:
             cli_args = getattr(func, "_cli_arguments", None)
             if cli_args is None:
-                func._cli_arguments = []
-            func._cli_arguments.append({"flags": flags, **kwargs})
+                func._cli_arguments = []  # type: ignore
+            func._cli_arguments.append({"flags": flags, **kwargs})  # type: ignore
 
     def command(
         self,
@@ -101,7 +101,7 @@ class DecoratorManager:
                     if flags:
                         cli_args = getattr(func, "_cli_arguments", None)
                         if cli_args is None:
-                            func._cli_arguments = []
+                            func._cli_arguments = []  # type: ignore
                         cast(Any, func)._cli_arguments.append(
                             {"flags": flags, **kwargs}
                         )

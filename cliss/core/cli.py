@@ -2,19 +2,29 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import sys
 from collections.abc import Callable
-from typing import Any, NoReturn, TextIO
+from typing import Any, NoReturn, TextIO, TypedDict, cast
 
-from .._types.definitions import ArgumentDef
 from ..colors import error, info, set_colors
 from ..help import Help
+from ..types.definitions import ArgumentDef
 from ..utils import echo, is_bool_type
 from .decorators import DecoratorManager
 from .parser import ArgumentParser
 
 INFO_MESSAGE = "See documentation or run --help"
+
+
+class CommandInfo(TypedDict, total=False):
+    """Type definition for command information stored in _commands."""
+
+    func: Callable[..., Any]
+    is_async: bool
+    description: str | None
+    arguments: list[ArgumentDef] | None
 
 
 class Cliss:
@@ -32,12 +42,14 @@ class Cliss:
         self.color = color
         self.description = description
         self.version = version
-        self._commands: dict[str, dict] = {}
+        self._commands: dict[str, CommandInfo] = {}
         self._help_system = Help(self, usage=usage.format(self=self), color=color)
         self._global_args: list[ArgumentDef] = []
         self._group_name: str | None = None
-        self._parent_commands: dict[str, dict] | None = None
-        self._decorator_manager = DecoratorManager(self._commands)
+        self._parent_commands: dict[str, CommandInfo] | None = None
+        self._decorator_manager = DecoratorManager(
+            cast(dict[str, dict], self._commands)
+        )
 
         set_colors(self.color)
 
@@ -83,7 +95,10 @@ class Cliss:
             _global_args=[],
             _group_name=name,
             _parent_commands=self._commands,
-            _decorator_manager=DecoratorManager(self._commands, self._commands),
+            _decorator_manager=DecoratorManager(
+                cast(dict[str, dict], self._commands),
+                cast(dict[str, dict], self._commands),
+            ),
             _parser=self._parser,
         )
         sub_cli._decorator_manager.group_name = name
@@ -97,16 +112,20 @@ class Cliss:
 
     def print_help(self, command_name: str | None = None) -> None:
         if command_name and (cmd_info := self._commands.get(command_name)):
+            cmd_info_dict = cast(dict[str, Any], cmd_info)
             help_text = self._help_system.format_command_help(
                 command_name,
-                cmd_info["description"],
-                self._parser.build_arg_defs(cmd_info),
+                cmd_info.get("description"),
+                self._parser.build_arg_defs(cmd_info_dict),
             )
         else:
             help_text = self._help_system.format_help(
                 self.description,
                 self._global_args,
-                {name: cmd["description"] for name, cmd in self._commands.items()},
+                {
+                    name: cmd.get("description") or ""
+                    for name, cmd in self._commands.items()
+                },
             )
         echo(help_text)
 
@@ -127,7 +146,7 @@ class Cliss:
             self.print_help()
             return
 
-        cmd_info = None
+        cmd_info: CommandInfo | None = None
         cmd_args = []
 
         if command_name in self._commands:
@@ -140,7 +159,7 @@ class Cliss:
                 if k.startswith(f"{command_name}:")
             }
             if len(group_matches) == 1:
-                cmd_info = self._commands[list(group_matches.keys())[0]]
+                cmd_info = self._commands[next(iter(group_matches.keys()))]
                 cmd_args = remaining[1:]
             elif len(group_matches) > 1 and len(remaining) > 1:
                 full_name = f"{command_name}:{remaining[1]}"
@@ -153,7 +172,7 @@ class Cliss:
             if not main_commands:
                 self._error_handler(f"Unknown command: {command_name}")
             if len(main_commands) == 1:
-                cmd_info = list(main_commands.values())[0]
+                cmd_info = next(iter(main_commands.values()))
                 cmd_args = remaining
             else:
                 self._error_handler(f"Unknown command: {command_name}")
@@ -161,7 +180,8 @@ class Cliss:
         if not cmd_info:
             self._error_handler(f"Unknown command: {command_name}")
 
-        cmd_arg_defs = self._parser.build_arg_defs(cmd_info)
+        cmd_info_dict = cast(dict[str, Any], cmd_info)
+        cmd_arg_defs = self._parser.build_arg_defs(cmd_info_dict)
 
         known_flags = {flag for arg_def in cmd_arg_defs for flag in arg_def.flags}
         unknown_flags = [
@@ -182,7 +202,11 @@ class Cliss:
         )
         func_kwargs = {**cmd_parsed}
 
-        sig_params = inspect.signature(cmd_info["func"]).parameters
+        func = cmd_info.get("func")
+        if not func:
+            self._error_handler(f"Command {command_name} has no function associated")
+
+        sig_params = inspect.signature(func).parameters
 
         positional_params = [
             name
@@ -219,16 +243,14 @@ class Cliss:
                 f"Missing {len(missing)} required positional argument: {missing[0]!r}"
             )
 
-        try:
-            result = (
-                cmd_info["func"](**func_kwargs)
-                if not cmd_info["is_async"]
-                else __import__("asyncio").run(cmd_info["func"](**func_kwargs))
-            )
-            if result is not None:
-                echo(str(result))
-        except Exception as e:
-            self._error_handler(str(e))
+        is_async = cmd_info.get("is_async", False)
+        if is_async:
+            result = asyncio.run(func(**func_kwargs))
+        else:
+            result = func(**func_kwargs)
+
+        if result is not None:
+            echo(str(result))
 
     def __call__(self, args: list[str] | None = None) -> None:
         return self.run(args)

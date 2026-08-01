@@ -9,8 +9,8 @@ from .formatter import HelpFormatter
 from .theme import HelpTheme
 
 if TYPE_CHECKING:
-    from .._types.definitions import ArgumentDef
     from ..core.cli import Cliss
+    from ..types.definitions import ArgumentDef
 
 
 class Help:

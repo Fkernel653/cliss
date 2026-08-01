@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from .theme import HelpTheme
 
 if TYPE_CHECKING:
-    from .._types.definitions import ArgumentDef
+    from ..types.definitions import ArgumentDef
 
 
 class HelpFormatter:
