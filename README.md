@@ -1,10 +1,10 @@
 # cliss — Lightweight framework for building CLI applications
 
-[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
-[![PyPI](https://img.shields.io/pypi/v/cliss.svg)](https://pypi.org/project/cliss/)
-[![License](https://img.shields.io/badge/license-LGPL_v3-green.svg)](LICENSE.md)
-[![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS%20%7C%20windows-lightgrey)]()
-[![Ruff](https://img.shields.io/badge/code%20style-ruff-261230?logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=fff&style=for-the-badge)](https://python.org)
+[![PyPI](https://img.shields.io/pypi/v/cliss?style=for-the-badge&logo=pypi&logoColor=fff&label=PyPI&color=007ec6)](https://pypi.org/project/cliss)
+[![License](https://img.shields.io/badge/License-LGPLv3-00b96b?style=for-the-badge)](LICENSE.md)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-9cf?style=for-the-badge)]()
+[![Ruff](https://img.shields.io/badge/Code%20Style-Ruff-ff69b4?logo=ruff&logoColor=fff&style=for-the-badge)](https://docs.astral.sh/ruff)
 
 Write type-annotated Python functions, get a full CLI — automatic `--help`, validation, async support, and zero dependencies.
 
